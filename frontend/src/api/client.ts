@@ -8,6 +8,10 @@ export interface SpeedResult {
   test_provider: SpeedTestProvider;
   server_name: string;
   server_location: string;
+  server_id: string;
+  server_host: string;
+  isp_name: string;
+  client_ip: string;
   result_url: string;
   is_manual: number;
   error: string | null;

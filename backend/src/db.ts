@@ -21,6 +21,10 @@ db.exec(`
     test_provider TEXT DEFAULT 'cloudflare',
     server_name TEXT DEFAULT 'Cloudflare',
     server_location TEXT DEFAULT '',
+    server_id TEXT DEFAULT '',
+    server_host TEXT DEFAULT '',
+    isp_name TEXT DEFAULT '',
+    client_ip TEXT DEFAULT '',
     result_url TEXT DEFAULT '',
     is_manual INTEGER DEFAULT 0,
     error TEXT
@@ -44,8 +48,16 @@ db.exec(`
 `);
 
 const speedColumns = db.prepare(`PRAGMA table_info(speed_results)`).all() as { name: string }[];
-if (!speedColumns.some(c => c.name === 'test_provider')) {
-  db.exec(`ALTER TABLE speed_results ADD COLUMN test_provider TEXT DEFAULT 'cloudflare'`);
+const speedColumnNames = new Set(speedColumns.map(c => c.name));
+const missingSpeedColumns: [string, string][] = [
+  ['test_provider', `ALTER TABLE speed_results ADD COLUMN test_provider TEXT DEFAULT 'cloudflare'`],
+  ['server_id', `ALTER TABLE speed_results ADD COLUMN server_id TEXT DEFAULT ''`],
+  ['server_host', `ALTER TABLE speed_results ADD COLUMN server_host TEXT DEFAULT ''`],
+  ['isp_name', `ALTER TABLE speed_results ADD COLUMN isp_name TEXT DEFAULT ''`],
+  ['client_ip', `ALTER TABLE speed_results ADD COLUMN client_ip TEXT DEFAULT ''`],
+];
+for (const [column, sql] of missingSpeedColumns) {
+  if (!speedColumnNames.has(column)) db.exec(sql);
 }
 
 const DEFAULTS: Record<string, string> = {
@@ -85,14 +97,33 @@ export function insertSpeedResult(r: {
   test_provider: string;
   server_name: string;
   server_location: string;
+  server_id: string;
+  server_host: string;
+  isp_name: string;
+  client_ip: string;
   result_url: string;
   is_manual: boolean;
   error?: string;
 }) {
   return db.prepare(`
-    INSERT INTO speed_results (timestamp, download_mbps, upload_mbps, ping_ms, jitter_ms, test_provider, server_name, server_location, result_url, is_manual, error)
-    VALUES (datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(r.download_mbps, r.upload_mbps, r.ping_ms, r.jitter_ms, r.test_provider, r.server_name, r.server_location, r.result_url, r.is_manual ? 1 : 0, r.error ?? null);
+    INSERT INTO speed_results (timestamp, download_mbps, upload_mbps, ping_ms, jitter_ms, test_provider, server_name, server_location, server_id, server_host, isp_name, client_ip, result_url, is_manual, error)
+    VALUES (datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    r.download_mbps,
+    r.upload_mbps,
+    r.ping_ms,
+    r.jitter_ms,
+    r.test_provider,
+    r.server_name,
+    r.server_location,
+    r.server_id,
+    r.server_host,
+    r.isp_name,
+    r.client_ip,
+    r.result_url,
+    r.is_manual ? 1 : 0,
+    r.error ?? null,
+  );
 }
 
 export function insertLatencyCheck(url: string, latency_ms: number | null, status: string) {

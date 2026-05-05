@@ -115,7 +115,14 @@ function CombinedTable({ speedRows, latencyRows, settings }: {
                         <Badge variant="default" className="text-[10px] px-1.5 py-0">spd</Badge>
                       </td>
                       <td className="px-3 py-2.5 text-xs text-muted-foreground">
-                        {speedProviderLabel(row.test_provider)} / {row.server_name}
+                        <div className="max-w-[220px]">
+                          <div className="truncate">{speedProviderLabel(row.test_provider)} / {row.server_name}</div>
+                          {(row.server_location || row.server_host) && (
+                            <div className="truncate text-[10px] text-muted-foreground/80">
+                              {[row.server_location, row.server_host].filter(Boolean).join(' / ')}
+                            </div>
+                          )}
+                        </div>
                       </td>
                       {/* DL */}
                       <td className={cn('px-3 py-2.5 text-xs tabular-nums font-semibold',

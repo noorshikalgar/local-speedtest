@@ -9,6 +9,10 @@ export interface SpeedResult {
   test_provider: SpeedTestProvider;
   server_name: string;
   server_location: string;
+  server_id: string;
+  server_host: string;
+  isp_name: string;
+  client_ip: string;
   result_url: string;
   error?: string;
 }
@@ -110,6 +114,25 @@ function round2(n: number) {
   return Math.round(n * 100) / 100;
 }
 
+async function getCloudflareTrace(): Promise<{ client_ip: string; server_location: string; isp_name: string }> {
+  try {
+    const res = await fetch(`${CF_BASE}/cdn-cgi/trace`, { cache: 'no-store' });
+    const text = await res.text();
+    const fields = Object.fromEntries(
+      text.split('\n')
+        .map(line => line.split('='))
+        .filter(parts => parts.length === 2),
+    );
+    return {
+      client_ip: fields.ip ?? '',
+      server_location: fields.colo ? `Cloudflare colo ${fields.colo}` : SPEED_TEST_PROVIDERS.cloudflare.serverLocation,
+      isp_name: '',
+    };
+  } catch {
+    return { client_ip: '', server_location: SPEED_TEST_PROVIDERS.cloudflare.serverLocation, isp_name: '' };
+  }
+}
+
 async function runHttpSpeedTest(provider: Extract<SpeedTestProvider, 'cloudflare' | 'google'>): Promise<SpeedResult> {
   const meta = SPEED_TEST_PROVIDERS[provider];
   const endpoints = provider === 'cloudflare'
@@ -125,7 +148,13 @@ async function runHttpSpeedTest(provider: Extract<SpeedTestProvider, 'cloudflare
       };
 
   try {
-    const { ping, jitter } = await withTimeout(measurePing(endpoints.ping), TIMEOUT_MS);
+    const [pingResult, trace] = await Promise.all([
+      withTimeout(measurePing(endpoints.ping), TIMEOUT_MS),
+      provider === 'cloudflare'
+        ? getCloudflareTrace()
+        : Promise.resolve({ client_ip: '', server_location: meta.serverLocation, isp_name: '' }),
+    ]);
+    const { ping, jitter } = pingResult;
     const [download_mbps, upload_mbps] = await Promise.all([
       withTimeout(measureDownload(endpoints.download), TIMEOUT_MS * 3),
       withTimeout(measureUpload(endpoints.upload), TIMEOUT_MS * 2),
@@ -138,7 +167,11 @@ async function runHttpSpeedTest(provider: Extract<SpeedTestProvider, 'cloudflare
       jitter_ms: jitter,
       test_provider: provider,
       server_name: meta.serverName,
-      server_location: meta.serverLocation,
+      server_location: trace.server_location,
+      server_id: '',
+      server_host: new URL(endpoints.ping).hostname,
+      isp_name: trace.isp_name,
+      client_ip: trace.client_ip,
       result_url: meta.resultUrl,
     };
   } catch (err) {
@@ -151,6 +184,10 @@ async function runHttpSpeedTest(provider: Extract<SpeedTestProvider, 'cloudflare
       test_provider: provider,
       server_name: meta.serverName,
       server_location: meta.serverLocation,
+      server_id: '',
+      server_host: new URL(endpoints.ping).hostname,
+      isp_name: '',
+      client_ip: '',
       result_url: meta.resultUrl,
       error: msg,
     };
@@ -167,6 +204,8 @@ async function runOoklaSpeedTest(): Promise<SpeedResult> {
     const data = JSON.parse(stdout);
     const server = data.server ?? {};
     const result = data.result ?? {};
+    const connection = data.isp ?? '';
+    const iface = data.interface ?? {};
 
     return {
       download_mbps: data.download?.bandwidth != null ? round2((data.download.bandwidth * 8) / 1_000_000) : null,
@@ -176,6 +215,10 @@ async function runOoklaSpeedTest(): Promise<SpeedResult> {
       test_provider: 'ookla',
       server_name: server.name ?? meta.serverName,
       server_location: [server.location, server.country].filter(Boolean).join(', ') || meta.serverLocation,
+      server_id: server.id != null ? String(server.id) : '',
+      server_host: server.host ?? server.ip ?? '',
+      isp_name: connection,
+      client_ip: iface.externalIp ?? iface.internalIp ?? '',
       result_url: result.url ?? meta.resultUrl,
     };
   } catch (err) {
@@ -190,6 +233,10 @@ async function runOoklaSpeedTest(): Promise<SpeedResult> {
       test_provider: 'ookla',
       server_name: meta.serverName,
       server_location: meta.serverLocation,
+      server_id: '',
+      server_host: '',
+      isp_name: '',
+      client_ip: '',
       result_url: meta.resultUrl,
       error: msg,
     };

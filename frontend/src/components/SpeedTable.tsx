@@ -34,6 +34,18 @@ export function SpeedTable({ settings, refreshKey = 0 }: SpeedTableProps) {
   const timezone = settings?.display_timezone;
   const colClass = 'px-3 py-2.5 text-xs tabular-nums';
 
+  function serverMeta(row: NonNullable<typeof rows>[number]) {
+    return [
+      row.server_location,
+      row.server_host,
+      row.server_id ? `id ${row.server_id}` : '',
+    ].filter(Boolean).join(' / ');
+  }
+
+  function connectionMeta(row: NonNullable<typeof rows>[number]) {
+    return [row.isp_name, row.client_ip].filter(Boolean).join(' / ');
+  }
+
   return (
     <div className="border border-border bg-card animate-in fade-in-0 duration-700">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
@@ -105,12 +117,20 @@ export function SpeedTable({ settings, refreshKey = 0 }: SpeedTableProps) {
                   </td>
                   <td className={cn(colClass, 'text-muted-foreground')}>{speedProviderLabel(row.test_provider)}</td>
                   <td className={cn(colClass, 'text-muted-foreground')}>
-                    <div className="flex items-center gap-1">
-                      <span>{row.server_name}</span>
-                      {row.result_url && (
-                        <a href={row.result_url} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="h-3 w-3 opacity-40 hover:opacity-100" />
-                        </a>
+                    <div className="max-w-[280px] space-y-0.5">
+                      <div className="flex items-center gap-1 text-foreground">
+                        <span className="truncate">{row.server_name}</span>
+                        {row.result_url && (
+                          <a href={row.result_url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                            <ExternalLink className="h-3 w-3 opacity-40 hover:opacity-100" />
+                          </a>
+                        )}
+                      </div>
+                      {serverMeta(row) && (
+                        <div className="truncate text-[10px] text-muted-foreground">{serverMeta(row)}</div>
+                      )}
+                      {connectionMeta(row) && (
+                        <div className="truncate text-[10px] text-muted-foreground/80">{connectionMeta(row)}</div>
                       )}
                     </div>
                   </td>
