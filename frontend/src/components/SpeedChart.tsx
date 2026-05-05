@@ -128,13 +128,13 @@ export function SpeedChart({ data, settings, range, onRangeChange, compact = fal
               <Area
                 type="monotone" dataKey="download" name={`Download (${ul})`}
                 stroke="#22d3ee" strokeWidth={1.5} fill="url(#gradDl)"
-                dot={false} activeDot={{ r: 3, fill: '#22d3ee' }} connectNulls={false}
+                dot={false} activeDot={{ r: 3, fill: '#22d3ee' }} connectNulls={true}
                 isAnimationActive animationDuration={800} animationEasing="ease-out"
               />
               <Area
                 type="monotone" dataKey="upload" name={`Upload (${ul})`}
                 stroke="#4ade80" strokeWidth={1.5} fill="url(#gradUl)"
-                dot={false} activeDot={{ r: 3, fill: '#4ade80' }} connectNulls={false}
+                dot={false} activeDot={{ r: 3, fill: '#4ade80' }} connectNulls={true}
                 isAnimationActive animationDuration={1000} animationEasing="ease-out"
               />
             </AreaChart>

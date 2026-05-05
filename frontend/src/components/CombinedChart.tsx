@@ -201,13 +201,13 @@ export function CombinedChart({ speedData, latencyData, settings }: CombinedChar
               <Area
                 yAxisId="speed" type="monotone" dataKey="download" name={`Download`}
                 stroke="#22d3ee" strokeWidth={1.5} fill="url(#cgDl)"
-                dot={false} activeDot={{ r: 3 }} connectNulls={false}
+                dot={false} activeDot={{ r: 3 }} connectNulls={true}
                 isAnimationActive animationDuration={800} animationEasing="ease-out"
               />
               <Area
                 yAxisId="speed" type="monotone" dataKey="upload" name={`Upload`}
                 stroke="#4ade80" strokeWidth={1.5} fill="url(#cgUl)"
-                dot={false} activeDot={{ r: 3 }} connectNulls={false}
+                dot={false} activeDot={{ r: 3 }} connectNulls={true}
                 isAnimationActive animationDuration={1000} animationEasing="ease-out"
               />
 
@@ -215,7 +215,7 @@ export function CombinedChart({ speedData, latencyData, settings }: CombinedChar
               <Line
                 yAxisId="latency" type="monotone" dataKey="ping" name="Ping"
                 stroke="#fb923c" strokeWidth={1.5} strokeDasharray="4 3"
-                dot={false} activeDot={{ r: 3 }} connectNulls={false}
+                dot={false} activeDot={{ r: 3 }} connectNulls={true}
                 isAnimationActive animationDuration={1200} animationEasing="ease-out"
               />
 
