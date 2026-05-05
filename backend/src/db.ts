@@ -34,8 +34,14 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     timestamp TEXT NOT NULL,
     url TEXT NOT NULL,
+    final_url TEXT DEFAULT '',
     latency_ms REAL,
-    status TEXT NOT NULL
+    http_status INTEGER,
+    status_text TEXT DEFAULT '',
+    response_server TEXT DEFAULT '',
+    content_type TEXT DEFAULT '',
+    status TEXT NOT NULL,
+    error_message TEXT DEFAULT ''
   );
 
   CREATE TABLE IF NOT EXISTS settings (
@@ -58,6 +64,20 @@ const missingSpeedColumns: [string, string][] = [
 ];
 for (const [column, sql] of missingSpeedColumns) {
   if (!speedColumnNames.has(column)) db.exec(sql);
+}
+
+const latencyColumns = db.prepare(`PRAGMA table_info(latency_checks)`).all() as { name: string }[];
+const latencyColumnNames = new Set(latencyColumns.map(c => c.name));
+const missingLatencyColumns: [string, string][] = [
+  ['final_url', `ALTER TABLE latency_checks ADD COLUMN final_url TEXT DEFAULT ''`],
+  ['http_status', `ALTER TABLE latency_checks ADD COLUMN http_status INTEGER`],
+  ['status_text', `ALTER TABLE latency_checks ADD COLUMN status_text TEXT DEFAULT ''`],
+  ['response_server', `ALTER TABLE latency_checks ADD COLUMN response_server TEXT DEFAULT ''`],
+  ['content_type', `ALTER TABLE latency_checks ADD COLUMN content_type TEXT DEFAULT ''`],
+  ['error_message', `ALTER TABLE latency_checks ADD COLUMN error_message TEXT DEFAULT ''`],
+];
+for (const [column, sql] of missingLatencyColumns) {
+  if (!latencyColumnNames.has(column)) db.exec(sql);
 }
 
 const DEFAULTS: Record<string, string> = {
@@ -126,11 +146,30 @@ export function insertSpeedResult(r: {
   );
 }
 
-export function insertLatencyCheck(url: string, latency_ms: number | null, status: string) {
+export function insertLatencyCheck(url: string, result: {
+  latency_ms: number | null;
+  status: string;
+  final_url: string;
+  http_status: number | null;
+  status_text: string;
+  response_server: string;
+  content_type: string;
+  error_message: string;
+}) {
   db.prepare(`
-    INSERT INTO latency_checks (timestamp, url, latency_ms, status)
-    VALUES (datetime('now'), ?, ?, ?)
-  `).run(url, latency_ms, status);
+    INSERT INTO latency_checks (timestamp, url, final_url, latency_ms, http_status, status_text, response_server, content_type, status, error_message)
+    VALUES (datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    url,
+    result.final_url,
+    result.latency_ms,
+    result.http_status,
+    result.status_text,
+    result.response_server,
+    result.content_type,
+    result.status,
+    result.error_message,
+  );
 }
 
 export function getSpeedResults(sinceIso: string, limit = 500) {

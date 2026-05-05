@@ -13,6 +13,7 @@ import { SpeedTable } from '@/components/SpeedTable';
 import { CombinedChart } from '@/components/CombinedChart';
 import { LatencyChart } from '@/components/LatencyChart';
 import { LatencyTable } from '@/components/LatencyTable';
+import { LatencyDetailsDrawer, SpeedDetailsDrawer } from '@/components/MonitorDetailsDrawer';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -51,6 +52,7 @@ function CombinedTable({ speedRows, latencyRows, settings }: {
   latencyRows: LatencyCheck[];
   settings: Settings | null;
 }) {
+  const [selected, setSelected] = useState<Entry | null>(null);
   const { unit } = useUnit();
   const ul = unitLabel(unit);
   const timezone = settings?.display_timezone;
@@ -102,8 +104,9 @@ function CombinedTable({ speedRows, latencyRows, settings }: {
                   return (
                     <tr
                       key={`s-${row.id}`}
+                      onClick={() => setSelected(entry)}
                       className={cn(
-                        'hover:bg-muted/30 transition-colors animate-in fade-in-0 slide-in-from-bottom-1',
+                        'cursor-pointer hover:bg-muted/30 transition-colors animate-in fade-in-0 slide-in-from-bottom-1',
                         isNewBatch ? 'border-t-2 border-primary/25' : 'border-t border-border/40',
                         isLow  && 'bg-red-950/20',
                         isWarn && 'bg-amber-950/10',
@@ -117,11 +120,6 @@ function CombinedTable({ speedRows, latencyRows, settings }: {
                       <td className="px-3 py-2.5 text-xs text-muted-foreground">
                         <div className="max-w-[220px]">
                           <div className="truncate">{speedProviderLabel(row.test_provider)} / {row.server_name}</div>
-                          {(row.server_location || row.server_host) && (
-                            <div className="truncate text-[10px] text-muted-foreground/80">
-                              {[row.server_location, row.server_host].filter(Boolean).join(' / ')}
-                            </div>
-                          )}
                         </div>
                       </td>
                       {/* DL */}
@@ -154,8 +152,9 @@ function CombinedTable({ speedRows, latencyRows, settings }: {
                 return (
                   <tr
                     key={`l-${row.id}`}
+                    onClick={() => setSelected(entry)}
                     className={cn(
-                      'hover:bg-muted/30 transition-colors animate-in fade-in-0 slide-in-from-bottom-1',
+                      'cursor-pointer hover:bg-muted/30 transition-colors animate-in fade-in-0 slide-in-from-bottom-1',
                       isNewBatch ? 'border-t-2 border-primary/25' : 'border-t border-border/40',
                     )}
                     style={{ animationDelay: `${i * 20}ms`, animationDuration: '200ms' }}
@@ -186,6 +185,17 @@ function CombinedTable({ speedRows, latencyRows, settings }: {
           </table>
         </div>
       )}
+      <SpeedDetailsDrawer
+        row={selected?.kind === 'speed' ? selected.data : null}
+        unit={unit}
+        timezone={timezone}
+        onClose={() => setSelected(null)}
+      />
+      <LatencyDetailsDrawer
+        row={selected?.kind === 'latency' ? selected.data : null}
+        timezone={timezone}
+        onClose={() => setSelected(null)}
+      />
     </div>
   );
 }

@@ -44,8 +44,8 @@ async function runAllTests() {
     const sitesRaw = getSetting('latency_sites') ?? '[]';
     const sites: string[] = JSON.parse(sitesRaw);
     for (const url of sites) {
-      const { latency_ms, status } = await checkLatency(url);
-      insertLatencyCheck(url, latency_ms, status);
+      const result = await checkLatency(url);
+      insertLatencyCheck(url, result);
     }
 
     const retention = parseInt(getSetting('retention_days') ?? '90', 10);

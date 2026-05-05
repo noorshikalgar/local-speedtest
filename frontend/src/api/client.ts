@@ -21,8 +21,14 @@ export interface LatencyCheck {
   id: number;
   timestamp: string;
   url: string;
+  final_url: string;
   latency_ms: number | null;
+  http_status: number | null;
+  status_text: string;
+  response_server: string;
+  content_type: string;
   status: string;
+  error_message: string;
 }
 
 export interface Settings {
