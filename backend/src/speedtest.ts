@@ -46,6 +46,7 @@ const GOOGLE_BASE = 'https://www.google.com';
 const GOOGLE_DOWNLOAD_URL = 'https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb';
 const TIMEOUT_MS = 30_000;
 const execFileAsync = promisify(execFile);
+type ExecError = NodeJS.ErrnoException & { stdout?: string; stderr?: string };
 
 export function normalizeSpeedTestProvider(value: unknown): SpeedTestProvider {
   const provider = String(value ?? '').trim().toLowerCase();
@@ -112,6 +113,47 @@ async function measureUpload(url: string): Promise<number> {
 
 function round2(n: number) {
   return Math.round(n * 100) / 100;
+}
+
+function parseOoklaJson(stdout: string): any | null {
+  for (const line of stdout.split('\n').reverse()) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith('{')) continue;
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed.type !== 'log') return parsed;
+    } catch {
+      // Keep scanning; Ookla can print non-JSON license text before JSON output.
+    }
+  }
+  return null;
+}
+
+function ooklaErrorMessage(err: unknown): string {
+  if (err instanceof Error && 'code' in err && (err as ExecError).code === 'ENOENT') {
+    return 'Ookla speedtest CLI is not installed';
+  }
+
+  const execErr = err as ExecError;
+  const output = `${execErr.stdout ?? ''}\n${execErr.stderr ?? ''}`;
+  const messages = output
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.startsWith('{'))
+    .map(line => {
+      try {
+        const parsed = JSON.parse(line);
+        return parsed.type === 'log' && parsed.message ? String(parsed.message).replace(/^Error:\s*/, '') : '';
+      } catch {
+        return '';
+      }
+    })
+    .filter(Boolean);
+
+  const unique = [...new Set(messages)];
+  if (unique.length > 0) return `Ookla Speedtest network error: ${unique.join('; ')}`;
+
+  return err instanceof Error ? err.message.split('\n')[0] : String(err);
 }
 
 async function getCloudflareTrace(): Promise<{ client_ip: string; server_location: string; isp_name: string }> {
@@ -201,7 +243,8 @@ async function runOoklaSpeedTest(): Promise<SpeedResult> {
       timeout: TIMEOUT_MS * 4,
       maxBuffer: 1024 * 1024,
     });
-    const data = JSON.parse(stdout);
+    const data = parseOoklaJson(stdout);
+    if (!data) throw new Error('Ookla Speedtest did not return a result');
     const server = data.server ?? {};
     const result = data.result ?? {};
     const connection = data.isp ?? '';
@@ -222,9 +265,7 @@ async function runOoklaSpeedTest(): Promise<SpeedResult> {
       result_url: result.url ?? meta.resultUrl,
     };
   } catch (err) {
-    const msg = err instanceof Error && 'code' in err && (err as NodeJS.ErrnoException).code === 'ENOENT'
-      ? 'Ookla speedtest CLI is not installed'
-      : err instanceof Error ? err.message : String(err);
+    const msg = ooklaErrorMessage(err);
     return {
       download_mbps: null,
       upload_mbps: null,
