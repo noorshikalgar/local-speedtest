@@ -7,9 +7,15 @@ COPY frontend/ .
 RUN npm run build
 
 # Stage 2: Production image
-FROM node:20-alpine
-# Required to compile better-sqlite3 native bindings
-RUN apk add --no-cache python3 make g++
+FROM node:20-bookworm-slim
+
+# Required to compile better-sqlite3 native bindings and install Ookla Speedtest CLI.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends ca-certificates curl python3 make g++ \
+  && curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | bash \
+  && apt-get install -y --no-install-recommends speedtest \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
