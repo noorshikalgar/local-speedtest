@@ -1,0 +1,156 @@
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+  ReferenceLine, ResponsiveContainer, Legend,
+} from 'recharts';
+import { format, parseISO } from 'date-fns';
+import type { SpeedResult, Settings, TimeRange } from '@/api/client';
+import { toDisplaySpeed, unitLabel } from '@/lib/utils';
+import { useUnit } from '@/contexts/unit';
+import { Tabs, TabsList, TabsTrigger } from './ui/tabs';
+
+interface SpeedChartProps {
+  data: SpeedResult[];
+  settings: Settings | null;
+  range: TimeRange;
+  onRangeChange: (r: TimeRange) => void;
+  compact?: boolean;
+}
+
+const RANGES: { label: string; value: TimeRange }[] = [
+  { label: '24h', value: '24h' },
+  { label: '7d', value: '7d' },
+  { label: '30d', value: '30d' },
+  { label: '90d', value: '90d' },
+];
+
+function formatTick(ts: string, range: TimeRange) {
+  try {
+    const d = parseISO(ts.replace(' ', 'T'));
+    if (range === '24h') return format(d, 'HH:mm');
+    if (range === '7d') return format(d, 'EEE HH:mm');
+    return format(d, 'MMM d');
+  } catch { return ts; }
+}
+
+function CustomTooltip({ active, payload, label, unit }: any) {
+  if (!active || !payload?.length) return null;
+  let dateStr = '';
+  try { dateStr = format(parseISO(String(label).replace(' ', 'T')), 'MMM d, HH:mm'); } catch { dateStr = label; }
+  const ul = unitLabel(unit);
+
+  return (
+    <div className="border border-border bg-card px-3 py-2 text-xs space-y-1">
+      <p className="text-muted-foreground mb-1">{dateStr}</p>
+      {payload.map((p: any) => (
+        <div key={p.dataKey} className="flex items-center gap-2">
+          <span className="inline-block h-2 w-2" style={{ background: p.color }} />
+          <span className="text-muted-foreground">{p.name}:</span>
+          <span className="font-medium tabular-nums" style={{ color: p.color }}>
+            {p.value != null ? `${Number(p.value).toFixed(unit === 'MBps' ? 2 : 1)} ${ul}` : '—'}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function SpeedChart({ data, settings, range, onRangeChange, compact = false }: SpeedChartProps) {
+  const { unit } = useUnit();
+  const ul = unitLabel(unit);
+
+  const chartData = data.map((r) => ({
+    timestamp: r.timestamp,
+    download: toDisplaySpeed(r.download_mbps, unit),
+    upload: toDisplaySpeed(r.upload_mbps, unit),
+  }));
+
+  const planDisplayVal = settings ? toDisplaySpeed(settings.plan_download_mbps, unit) ?? 0 : 0;
+  const maxRaw = Math.max(
+    planDisplayVal * 1.2,
+    ...chartData.map((r) => r.download ?? 0),
+  );
+  const maxY = Math.ceil(maxRaw / 5) * 5;
+
+  return (
+    <div className="border border-border bg-card animate-in fade-in-0 duration-500">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+          Speed History ({ul})
+        </span>
+        {!compact && (
+          <Tabs value={range} onValueChange={(v) => onRangeChange(v as TimeRange)}>
+            <TabsList>
+              {RANGES.map((r) => (
+                <TabsTrigger key={r.value} value={r.value}>{r.label}</TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        )}
+      </div>
+
+      <div className={compact ? 'p-4 h-48' : 'p-4 h-64'}>
+        {chartData.length === 0 ? (
+          <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+            No data yet — run a speed test to get started
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chartData} margin={{ top: 4, right: 4, left: -10, bottom: 0 }}>
+              <defs>
+                <linearGradient id="gradDl" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#22d3ee" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#22d3ee" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="gradUl" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#4ade80" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#4ade80" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+              <XAxis
+                dataKey="timestamp"
+                tickFormatter={(v) => formatTick(v, range)}
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10, fontFamily: 'monospace' }}
+                axisLine={false} tickLine={false} minTickGap={40}
+              />
+              <YAxis
+                domain={[0, maxY]}
+                tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10, fontFamily: 'monospace' }}
+                axisLine={false} tickLine={false}
+                tickFormatter={(v) => unit === 'MBps' ? v.toFixed(1) : String(v)}
+              />
+              <Tooltip content={<CustomTooltip unit={unit} />} />
+              {!compact && (
+                <Legend
+                  wrapperStyle={{ fontSize: 11, fontFamily: 'monospace', paddingTop: 8 }}
+                  formatter={(v) => <span style={{ color: 'hsl(var(--muted-foreground))' }}>{v}</span>}
+                />
+              )}
+              {settings && (
+                <ReferenceLine
+                  y={planDisplayVal}
+                  stroke="#ef4444"
+                  strokeDasharray="6 3"
+                  strokeOpacity={0.7}
+                  label={{ value: `plan ${planDisplayVal.toFixed(unit === 'MBps' ? 1 : 0)}`, fill: '#ef4444', fontSize: 10, fontFamily: 'monospace', position: 'insideTopRight' }}
+                />
+              )}
+              <Area
+                type="monotone" dataKey="download" name={`Download (${ul})`}
+                stroke="#22d3ee" strokeWidth={1.5} fill="url(#gradDl)"
+                dot={false} activeDot={{ r: 3, fill: '#22d3ee' }} connectNulls={false}
+                isAnimationActive animationDuration={800} animationEasing="ease-out"
+              />
+              <Area
+                type="monotone" dataKey="upload" name={`Upload (${ul})`}
+                stroke="#4ade80" strokeWidth={1.5} fill="url(#gradUl)"
+                dot={false} activeDot={{ r: 3, fill: '#4ade80' }} connectNulls={false}
+                isAnimationActive animationDuration={1000} animationEasing="ease-out"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+    </div>
+  );
+}

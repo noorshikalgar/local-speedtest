@@ -1,0 +1,126 @@
+import { useState } from 'react';
+import { format, parseISO } from 'date-fns';
+import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { speedApi } from '@/api/client';
+import type { Settings } from '@/api/client';
+import { Badge } from './ui/badge';
+import { Button } from './ui/button';
+import { fmtSpeed, fmtMs, speedStatus, unitLabel } from '@/lib/utils';
+import { useUnit } from '@/contexts/unit';
+import { cn } from '@/lib/utils';
+
+interface SpeedTableProps {
+  settings: Settings | null;
+  refreshKey?: number;
+}
+
+function fmtTs(ts: string) {
+  try { return format(parseISO(ts.replace(' ', 'T')), 'MMM d, HH:mm'); } catch { return ts; }
+}
+
+export function SpeedTable({ settings, refreshKey = 0 }: SpeedTableProps) {
+  const [page, setPage] = useState(1);
+  const pageSize = 15;
+  const { unit } = useUnit();
+  const ul = unitLabel(unit);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['speeds-page', page, refreshKey],
+    queryFn: () => speedApi.page(page, pageSize),
+  });
+
+  const rows = data?.rows ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const planDl = settings?.plan_download_mbps ?? 100;
+  const threshold = settings?.alert_threshold_pct ?? 20;
+  const colClass = 'px-3 py-2.5 text-xs tabular-nums';
+
+  return (
+    <div className="border border-border bg-card animate-in fade-in-0 duration-700">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+        <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+          History — {total} records
+        </span>
+        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </Button>
+          <span>{page} / {totalPages}</span>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
+              <th className="px-3 py-2 text-left font-medium">Time</th>
+              <th className="px-3 py-2 text-right font-medium">Download ({ul})</th>
+              <th className="px-3 py-2 text-right font-medium">Upload ({ul})</th>
+              <th className="px-3 py-2 text-right font-medium">Ping (ms)</th>
+              <th className="px-3 py-2 text-right font-medium">Jitter (ms)</th>
+              <th className="px-3 py-2 text-left font-medium">Status</th>
+              <th className="px-3 py-2 text-left font-medium">Server</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading && (
+              <tr><td colSpan={7} className="px-3 py-8 text-center text-xs text-muted-foreground">Loading…</td></tr>
+            )}
+            {!isLoading && rows.length === 0 && (
+              <tr><td colSpan={7} className="px-3 py-8 text-center text-xs text-muted-foreground">No records yet</td></tr>
+            )}
+            {rows.map((row, i) => {
+              const dlSt = row.error ? 'low' : speedStatus(row.download_mbps, planDl, threshold);
+              const isGood = dlSt === 'good' && !row.error;
+              const isWarn = dlSt === 'warn' && !row.error;
+              const isLow = dlSt === 'low' || !!row.error;
+
+              return (
+                <tr
+                  key={row.id}
+                  className={cn(
+                    'border-b border-border/50 hover:bg-muted/30 transition-colors animate-in fade-in-0 slide-in-from-bottom-1',
+                    { 'bg-red-950/20': isLow, 'bg-amber-950/10': isWarn }
+                  )}
+                  style={{ animationDelay: `${i * 25}ms`, animationDuration: '200ms' }}
+                >
+                  <td className={cn(colClass, 'text-muted-foreground')}>
+                    {fmtTs(row.timestamp)}
+                    {row.is_manual === 1 && <span className="ml-1 text-primary/60 text-[10px]">manual</span>}
+                  </td>
+                  <td className={cn(colClass, 'text-right font-medium', isLow ? 'text-red-400' : isWarn ? 'text-amber-400' : 'text-cyan-400')}>
+                    {fmtSpeed(row.download_mbps, unit)}
+                  </td>
+                  <td className={cn(colClass, 'text-right text-emerald-400')}>{fmtSpeed(row.upload_mbps, unit)}</td>
+                  <td className={cn(colClass, 'text-right text-orange-400')}>{fmtMs(row.ping_ms)}</td>
+                  <td className={cn(colClass, 'text-right text-violet-400')}>{fmtMs(row.jitter_ms)}</td>
+                  <td className={colClass}>
+                    {row.error ? <Badge variant="destructive">error</Badge>
+                      : isGood ? <Badge variant="success">good</Badge>
+                      : isWarn ? <Badge variant="warning">warn</Badge>
+                      : <Badge variant="destructive">low</Badge>}
+                  </td>
+                  <td className={cn(colClass, 'text-muted-foreground')}>
+                    <div className="flex items-center gap-1">
+                      <span>{row.server_name}</span>
+                      {row.result_url && (
+                        <a href={row.result_url} target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="h-3 w-3 opacity-40 hover:opacity-100" />
+                        </a>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
