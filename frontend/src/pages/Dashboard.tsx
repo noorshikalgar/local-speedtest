@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Play, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Play, RefreshCw, ChevronLeft, ChevronRight, BarChart2, Zap, Activity, Globe } from 'lucide-react';
 import {
   speedApi, settingsApi, latencyApi,
   type TimeRange, type SpeedResult, type LatencyCheck, type Settings,
@@ -21,7 +21,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { fmtSpeed, fmtMs, speedProviderLabel, speedStatus, unitLabel } from '@/lib/utils';
 import { useUnit } from '@/contexts/unit';
 import { cn } from '@/lib/utils';
-import { formatActivityTime } from '@/lib/datetime';
+import { formatActivityTime, formatTimeOnly } from '@/lib/datetime';
 
 type LatencyRange = '24h' | '7d' | '30d';
 type ViewTab = 'combined' | 'speed' | 'latency' | 'sites';
@@ -252,22 +252,7 @@ export function Dashboard() {
 
   const isTestRunning = runMutation.isPending || status?.isRunning;
 
-  // live countdown to next run
-  const [nextRunCountdown, setNextRunCountdown] = useState('—');
-  useEffect(() => {
-    const nextRun = status?.nextRun;
-    if (!nextRun || isTestRunning) { setNextRunCountdown('—'); return; }
-    const update = () => {
-      const diff = Math.max(0, new Date(nextRun).getTime() - Date.now());
-      const secs = Math.floor(diff / 1000);
-      const m = Math.floor(secs / 60);
-      const s = secs % 60;
-      setNextRunCountdown(`${m}:${s.toString().padStart(2, '0')}`);
-    };
-    update();
-    const id = setInterval(update, 1000);
-    return () => clearInterval(id);
-  }, [status?.nextRun, isTestRunning]);
+  // (countdown lives in Header now — no local countdown state needed)
 
   // update document title while testing
   useEffect(() => {
@@ -301,11 +286,13 @@ export function Dashboard() {
           <span className="px-2 py-1 text-amber-600">Alert</span>
           <span className="px-2 py-1 text-amber-300 border-l border-amber-800/40">{settings ? `${100 - settings.alert_threshold_pct}% of plan` : '—'}</span>
         </div>
-        {/* NEXT RUN pill — emerald (countdown) */}
-        {status?.nextRun && !isTestRunning && (
+        {/* NEXT RUN pill — emerald — always visible, shows absolute time */}
+        {status?.nextRun && (
           <div className="flex items-center border border-emerald-800/40 bg-emerald-950/30 text-[11px] uppercase tracking-wider overflow-hidden tabular-nums">
             <span className="px-2 py-1 text-emerald-600">Next</span>
-            <span className="px-2 py-1 text-emerald-300 border-l border-emerald-800/40">{nextRunCountdown}</span>
+            <span className="px-2 py-1 text-emerald-300 border-l border-emerald-800/40">
+              {isTestRunning ? 'running…' : formatTimeOnly(status.nextRun, settings?.display_timezone)}
+            </span>
           </div>
         )}
       </div>
@@ -313,13 +300,21 @@ export function Dashboard() {
     </div>
   );
 
+  const NAV_TABS = [
+    { value: 'combined', label: 'Combined', Icon: BarChart2 },
+    { value: 'speed',    label: 'Speed',    Icon: Zap },
+    { value: 'latency',  label: 'Latency',  Icon: Activity },
+    { value: 'sites',    label: 'My Sites', Icon: Globe },
+  ] as const;
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header isRunning={isTestRunning} nextRun={status?.nextRun} timezone={settings?.display_timezone} />
 
-      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-5 space-y-4">
+      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-5 pb-20 sm:pb-5 space-y-4">
         <Tabs value={view} onValueChange={v => setView(v as ViewTab)}>
-          <TabsList className="h-8">
+          {/* top tabs — hidden on mobile, replaced by bottom nav */}
+          <TabsList className="hidden sm:flex h-8">
             <TabsTrigger value="combined">Combined</TabsTrigger>
             <TabsTrigger value="speed">Speed Test</TabsTrigger>
             <TabsTrigger value="latency">Latency</TabsTrigger>
@@ -356,6 +351,25 @@ export function Dashboard() {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Mobile bottom nav — iOS style, only on small screens */}
+      <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card flex">
+        {NAV_TABS.map(({ value, label, Icon }) => (
+          <button
+            key={value}
+            onClick={() => setView(value as ViewTab)}
+            className={cn(
+              'flex-1 flex flex-col items-center justify-center gap-1 py-2 text-[10px] uppercase tracking-wider transition-colors',
+              view === value
+                ? 'text-primary'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <Icon className={cn('h-5 w-5', view === value && 'text-primary')} />
+            {label}
+          </button>
+        ))}
+      </nav>
     </div>
   );
 }

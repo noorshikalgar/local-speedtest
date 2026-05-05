@@ -109,7 +109,7 @@ export function SettingsPage() {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      <main className="flex-1 max-w-2xl mx-auto w-full px-4 py-8 space-y-6 animate-in fade-in-0 duration-300">
+      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-8 space-y-6 animate-in fade-in-0 duration-300">
         <div className="flex items-center justify-between">
           <h1 className="text-sm font-semibold uppercase tracking-widest">Settings</h1>
           <Button onClick={() => form && saveMutation.mutate(form)} disabled={saveMutation.isPending} size="sm" className="gap-2">

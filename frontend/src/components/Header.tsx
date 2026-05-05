@@ -30,10 +30,10 @@ export function Header({ isRunning, nextRun }: HeaderProps) {
   const [, setTick] = useState(0);
 
   useEffect(() => {
-    if (!nextRun || isRunning) return;
+    if (!nextRun) return;
     const id = window.setInterval(() => setTick(t => t + 1), 1000);
     return () => window.clearInterval(id);
-  }, [nextRun, isRunning]);
+  }, [nextRun]);
 
   function cycleTheme() {
     const idx = THEME_LIST.indexOf(theme);
@@ -42,30 +42,30 @@ export function Header({ isRunning, nextRun }: HeaderProps) {
 
   return (
     <header className="border-b border-border bg-card px-4 py-2.5 flex items-center justify-between">
-      {/* Brand — always links home */}
+      {/* Brand */}
       <Link to="/" className="flex items-center gap-2.5 group">
         <Zap className="h-4 w-4 text-primary transition-transform group-hover:scale-110" />
         <span className="text-sm font-semibold tracking-widest uppercase text-foreground group-hover:text-primary transition-colors">
           SpeedWatch
         </span>
+      </Link>
+
+      <div className="flex items-center gap-1.5">
+        {/* right side: countdown + testing indicator */}
+        {nextRun && (
+          <span className="hidden md:inline-flex items-center gap-1.5 border border-emerald-800/40 bg-emerald-950/30 px-2 py-1 text-[11px] uppercase tracking-wider tabular-nums mr-1">
+            <span className="text-emerald-600">next in</span>
+            <span className="text-emerald-300">{fmtCountdown(nextRun)}</span>
+          </span>
+        )}
         {isRunning && (
-          <span className="flex items-center gap-1.5 text-xs text-amber-400">
+          <span className="hidden md:inline-flex items-center gap-1.5 border border-amber-800/40 bg-amber-950/30 px-2 py-1 text-[11px] uppercase tracking-wider text-amber-400 mr-1">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
             testing…
           </span>
         )}
-      </Link>
 
-      <div className="flex items-center gap-1.5">
-        {/* live countdown to next run */}
-        {nextRun && !isRunning && (
-          <span className="hidden md:inline-flex items-center gap-1.5 border border-emerald-800/40 bg-emerald-950/30 px-2 py-1 text-[11px] uppercase tracking-wider text-emerald-400 mr-2 tabular-nums">
-            <span className="text-emerald-600">next in</span>
-            {fmtCountdown(nextRun)}
-          </span>
-        )}
-
-        {/* Unit toggle: Mbps / MB/s */}
+        {/* Unit toggle */}
         <div className="flex items-center border border-border overflow-hidden text-xs">
           <button
             onClick={() => setUnit('Mbps')}
