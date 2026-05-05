@@ -1,10 +1,11 @@
+import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Settings, Zap, Monitor } from 'lucide-react';
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
 import { useUnit } from '@/contexts/unit';
 import { useTheme, THEME_LIST, THEME_LABELS, type Theme } from '@/contexts/theme';
-import { formatTimeOnly } from '@/lib/datetime';
+import { formatTimeWithSeconds } from '@/lib/datetime';
 
 interface HeaderProps {
   isRunning?: boolean;
@@ -19,6 +20,13 @@ export function Header({ isRunning, nextRun, timezone }: HeaderProps) {
   const onSettings = location.pathname === '/settings';
   const { unit, setUnit } = useUnit();
   const { theme, setTheme } = useTheme();
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    if (!nextRun || isRunning) return;
+    const id = window.setInterval(() => setTick(t => t + 1), 1000);
+    return () => window.clearInterval(id);
+  }, [nextRun, isRunning]);
 
   function cycleTheme() {
     const idx = THEME_LIST.indexOf(theme);
@@ -44,8 +52,8 @@ export function Header({ isRunning, nextRun, timezone }: HeaderProps) {
       <div className="flex items-center gap-1.5">
         {/* next run */}
         {nextRun && !isRunning && (
-          <span className="hidden md:block text-xs text-muted-foreground mr-2">
-            next {formatTimeOnly(nextRun, timezone)}
+          <span className="hidden md:inline-flex items-center border border-border bg-muted px-2 py-1 text-[11px] uppercase tracking-wider text-muted-foreground mr-2 tabular-nums">
+            next {formatTimeWithSeconds(nextRun, timezone)}
           </span>
         )}
 

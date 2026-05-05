@@ -47,6 +47,8 @@ const CF_BASE = 'https://speed.cloudflare.com';
 const GOOGLE_BASE = 'https://www.google.com';
 const GOOGLE_DOWNLOAD_URL = 'https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb';
 const TIMEOUT_MS = 30_000;
+const RETRY_ATTEMPTS = 2;
+const RETRY_DELAY_MS = 5_000;
 const execFileAsync = promisify(execFile);
 type ExecError = NodeJS.ErrnoException & { stdout?: string; stderr?: string };
 
@@ -60,6 +62,10 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
     promise,
     new Promise<T>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
   ]);
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 async function measurePing(url: string): Promise<{ ping: number; jitter: number }> {
@@ -325,6 +331,27 @@ async function runOoklaSpeedTest(): Promise<SpeedResult> {
 
 export async function runSpeedTest(providerValue: unknown = 'cloudflare'): Promise<SpeedResult> {
   const provider = normalizeSpeedTestProvider(providerValue);
-  if (provider === 'ookla') return runOoklaSpeedTest();
-  return runHttpSpeedTest(provider);
+  let lastResult: SpeedResult | null = null;
+
+  for (let attempt = 1; attempt <= RETRY_ATTEMPTS + 1; attempt++) {
+    const result = provider === 'ookla' ? await runOoklaSpeedTest() : await runHttpSpeedTest(provider);
+    if (!result.error) {
+      return attempt === 1 ? result : { ...result, diagnostics: `Succeeded on attempt ${attempt} after retry.` };
+    }
+
+    lastResult = {
+      ...result,
+      diagnostics: [
+        result.diagnostics,
+        `Attempt ${attempt} of ${RETRY_ATTEMPTS + 1} failed: ${result.error}`,
+      ].filter(Boolean).join('\n'),
+    };
+
+    if (attempt <= RETRY_ATTEMPTS) await wait(RETRY_DELAY_MS);
+  }
+
+  return {
+    ...lastResult!,
+    diagnostics: `${lastResult!.diagnostics}\nRetried ${RETRY_ATTEMPTS} time(s) with ${RETRY_DELAY_MS / 1000}s between attempts.`,
+  };
 }

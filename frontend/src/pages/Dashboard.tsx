@@ -28,6 +28,18 @@ type ViewTab = 'combined' | 'speed' | 'latency';
 function host(url: string) {
   try { return new URL(url).hostname; } catch { return url; }
 }
+
+function intervalLabel(minutes?: number) {
+  if (!minutes) return '—';
+  if (minutes < 60) return `${minutes}m`;
+  if (minutes % 60 === 0) return `${minutes / 60}h`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+}
+
+function providerSettingLabel(settings: Settings | null | undefined) {
+  if (!settings) return '—';
+  return settings.speed_test_auto_round_robin ? 'Round robin' : speedProviderLabel(settings.speed_test_provider);
+}
 // minute bucket for grouping test runs
 function bucket(ts: string) { return ts.substring(0, 16); }
 
@@ -243,6 +255,17 @@ export function Dashboard() {
     </Button>
   );
 
+  const MonitorControls = (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-wider text-muted-foreground">
+        <span className="border border-border bg-muted px-2 py-1">Every {intervalLabel(settings?.test_interval_minutes)}</span>
+        <span className="border border-border bg-muted px-2 py-1">Server {providerSettingLabel(settings)}</span>
+        <span className="border border-border bg-muted px-2 py-1">Alert {settings ? `${100 - settings.alert_threshold_pct}% of plan` : '—'}</span>
+      </div>
+      {RunButton}
+    </div>
+  );
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header isRunning={isTestRunning} nextRun={status?.nextRun} timezone={settings?.display_timezone} />
@@ -259,7 +282,7 @@ export function Dashboard() {
           <TabsContent value="combined" className="space-y-4 mt-4">
             <AlertBanner latest={latest ?? null} settings={settings ?? null} />
             <StatCards   latest={latest ?? null} settings={settings ?? null} />
-            <div className="flex justify-end">{RunButton}</div>
+            {MonitorControls}
             <CombinedChart speedData={chartData} latencyData={latencyData} settings={settings ?? null} />
             <CombinedTable speedRows={chartData} latencyRows={latencyData} settings={settings ?? null} />
           </TabsContent>
@@ -268,7 +291,7 @@ export function Dashboard() {
           <TabsContent value="speed" className="space-y-4 mt-4">
             <AlertBanner latest={latest ?? null} settings={settings ?? null} />
             <StatCards   latest={latest ?? null} settings={settings ?? null} />
-            <div className="flex justify-end">{RunButton}</div>
+            {MonitorControls}
             <SpeedChart data={chartData} settings={settings ?? null} range={speedRange} onRangeChange={setSpeedRange} />
             <SpeedTable settings={settings ?? null} refreshKey={refreshKey} />
           </TabsContent>

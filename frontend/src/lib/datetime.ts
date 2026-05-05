@@ -54,3 +54,7 @@ export function formatChartTick(ts: string, range: TimeRange | '24h' | '7d' | '3
 export function formatTimeOnly(ts: string, timezone?: string | null) {
   return formatInZone(ts, timezone, { hour: '2-digit', minute: '2-digit' });
 }
+
+export function formatTimeWithSeconds(ts: string, timezone?: string | null) {
+  return formatInZone(ts, timezone, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
