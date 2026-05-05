@@ -5,7 +5,6 @@ import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
 import { useUnit } from '@/contexts/unit';
 import { useTheme, THEME_LIST, THEME_LABELS, type Theme } from '@/contexts/theme';
-import { formatTimeWithSeconds } from '@/lib/datetime';
 
 interface HeaderProps {
   isRunning?: boolean;
@@ -15,7 +14,15 @@ interface HeaderProps {
 
 const THEME_ICONS: Record<Theme, string> = { void: '◉', terminal: '⬛', paper: '□' };
 
-export function Header({ isRunning, nextRun, timezone }: HeaderProps) {
+function fmtCountdown(nextRun: string): string {
+  const diff = Math.max(0, new Date(nextRun).getTime() - Date.now());
+  const secs = Math.floor(diff / 1000);
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+export function Header({ isRunning, nextRun }: HeaderProps) {
   const location = useLocation();
   const onSettings = location.pathname === '/settings';
   const { unit, setUnit } = useUnit();
@@ -50,10 +57,11 @@ export function Header({ isRunning, nextRun, timezone }: HeaderProps) {
       </Link>
 
       <div className="flex items-center gap-1.5">
-        {/* next run */}
+        {/* live countdown to next run */}
         {nextRun && !isRunning && (
-          <span className="hidden md:inline-flex items-center border border-border bg-muted px-2 py-1 text-[11px] uppercase tracking-wider text-muted-foreground mr-2 tabular-nums">
-            next {formatTimeWithSeconds(nextRun, timezone)}
+          <span className="hidden md:inline-flex items-center gap-1.5 border border-emerald-800/40 bg-emerald-950/30 px-2 py-1 text-[11px] uppercase tracking-wider text-emerald-400 mr-2 tabular-nums">
+            <span className="text-emerald-600">next in</span>
+            {fmtCountdown(nextRun)}
           </span>
         )}
 

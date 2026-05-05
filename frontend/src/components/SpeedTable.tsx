@@ -60,12 +60,12 @@ export function SpeedTable({ settings, refreshKey = 0 }: SpeedTableProps) {
               <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
                 <th className="px-3 py-2 text-left font-medium">Time</th>
                 <th className="px-3 py-2 text-right font-medium">Download ({ul})</th>
-                <th className="px-3 py-2 text-right font-medium">Upload ({ul})</th>
-                <th className="px-3 py-2 text-right font-medium">Ping (ms)</th>
-                <th className="px-3 py-2 text-right font-medium">Jitter (ms)</th>
+                <th className="px-3 py-2 text-right font-medium hidden sm:table-cell">Upload ({ul})</th>
+                <th className="px-3 py-2 text-right font-medium hidden sm:table-cell">Ping (ms)</th>
+                <th className="px-3 py-2 text-right font-medium hidden md:table-cell">Jitter (ms)</th>
                 <th className="px-3 py-2 text-left font-medium">Status</th>
-                <th className="px-3 py-2 text-left font-medium">Provider</th>
-                <th className="px-3 py-2 text-left font-medium">Server</th>
+                <th className="px-3 py-2 text-left font-medium hidden md:table-cell">Provider</th>
+                <th className="px-3 py-2 text-left font-medium hidden lg:table-cell">Server</th>
               </tr>
             </thead>
             <tbody>
@@ -98,17 +98,17 @@ export function SpeedTable({ settings, refreshKey = 0 }: SpeedTableProps) {
                   <td className={cn(colClass, 'text-right font-medium', isLow ? 'text-red-400' : isWarn ? 'text-amber-400' : 'text-cyan-400')}>
                     {fmtSpeed(row.download_mbps, unit)}
                   </td>
-                  <td className={cn(colClass, 'text-right text-emerald-400')}>{fmtSpeed(row.upload_mbps, unit)}</td>
-                  <td className={cn(colClass, 'text-right text-orange-400')}>{fmtMs(row.ping_ms)}</td>
-                  <td className={cn(colClass, 'text-right text-violet-400')}>{fmtMs(row.jitter_ms)}</td>
+                  <td className={cn(colClass, 'text-right text-emerald-400 hidden sm:table-cell')}>{fmtSpeed(row.upload_mbps, unit)}</td>
+                  <td className={cn(colClass, 'text-right text-orange-400 hidden sm:table-cell')}>{fmtMs(row.ping_ms)}</td>
+                  <td className={cn(colClass, 'text-right text-violet-400 hidden md:table-cell')}>{fmtMs(row.jitter_ms)}</td>
                   <td className={colClass}>
                     {row.error ? <Badge variant="destructive">error</Badge>
                       : isGood ? <Badge variant="success">good</Badge>
                       : isWarn ? <Badge variant="warning">warn</Badge>
                       : <Badge variant="destructive">low</Badge>}
                   </td>
-                  <td className={cn(colClass, 'text-muted-foreground')}>{speedProviderLabel(row.test_provider)}</td>
-                  <td className={cn(colClass, 'text-muted-foreground')}>
+                  <td className={cn(colClass, 'text-muted-foreground hidden md:table-cell')}>{speedProviderLabel(row.test_provider)}</td>
+                  <td className={cn(colClass, 'text-muted-foreground hidden lg:table-cell')}>
                     <div className="flex items-center gap-1">
                         <span className="truncate">{row.server_name}</span>
                         {row.result_url && (

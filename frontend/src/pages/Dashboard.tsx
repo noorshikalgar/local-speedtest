@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Play, RefreshCw } from 'lucide-react';
+import { Play, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   speedApi, settingsApi, latencyApi,
   type TimeRange, type SpeedResult, type LatencyCheck, type Settings,
@@ -60,31 +60,44 @@ function buildTimeline(speedRows: SpeedResult[], latencyRows: LatencyCheck[]): E
 }
 
 // ─── Unified table ────────────────────────────────────────────────────────────
+const COMBINED_PAGE_SIZE = 20;
+
 function CombinedTable({ speedRows, latencyRows, settings }: {
   speedRows: SpeedResult[];
   latencyRows: LatencyCheck[];
   settings: Settings | null;
 }) {
   const [selected, setSelected] = useState<Entry | null>(null);
+  const [page, setPage] = useState(1);
   const { unit } = useUnit();
   const ul = unitLabel(unit);
   const timezone = settings?.display_timezone;
   const planDl   = settings?.plan_download_mbps ?? 100;
   const threshold = settings?.alert_threshold_pct ?? 20;
 
-  // show last 30 entries (speed + latency combined)
-  const entries = buildTimeline(speedRows, latencyRows).slice(0, 30);
+  const allEntries = buildTimeline(speedRows, latencyRows);
+  const totalPages = Math.max(1, Math.ceil(allEntries.length / COMBINED_PAGE_SIZE));
+  const entries = allEntries.slice((page - 1) * COMBINED_PAGE_SIZE, page * COMBINED_PAGE_SIZE);
 
   // track bucket changes to draw a divider between test-run groups
   let lastBkt = '';
 
   return (
     <div className="border border-border bg-card animate-in fade-in-0 duration-700">
-      <div className="px-4 py-3 border-b border-border">
+      <div className="px-4 py-3 border-b border-border flex items-center justify-between">
         <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Recent Activity</span>
+        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </Button>
+          <span>{page} / {totalPages}</span>
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
 
-      {entries.length === 0 ? (
+      {allEntries.length === 0 ? (
         <p className="px-4 py-8 text-center text-xs text-muted-foreground">No records yet — run a speed test</p>
       ) : (
         <div className="overflow-x-auto">
@@ -92,13 +105,10 @@ function CombinedTable({ speedRows, latencyRows, settings }: {
             <thead>
               <tr className="border-b border-border text-[10px] uppercase tracking-wider text-muted-foreground">
                 <th className="px-3 py-2 text-left  font-medium w-32">Time</th>
-                <th className="px-3 py-2 text-left  font-medium w-16">Type</th>
-                <th className="px-3 py-2 text-left  font-medium w-36">Server</th>
-                {/* shared col: download speed OR hostname */}
+                <th className="px-3 py-2 text-left  font-medium w-16 hidden sm:table-cell">Type</th>
+                <th className="px-3 py-2 text-left  font-medium w-36 hidden md:table-cell">Server</th>
                 <th className="px-3 py-2 text-left  font-medium">DL ({ul}) / Host</th>
-                {/* upload — only speed rows use this */}
-                <th className="px-3 py-2 text-right font-medium w-24">UL ({ul})</th>
-                {/* ping / latency ms */}
+                <th className="px-3 py-2 text-right font-medium w-24 hidden sm:table-cell">UL ({ul})</th>
                 <th className="px-3 py-2 text-right font-medium w-20">ms</th>
                 <th className="px-3 py-2 text-left  font-medium w-20">Status</th>
               </tr>
@@ -127,24 +137,21 @@ function CombinedTable({ speedRows, latencyRows, settings }: {
                       style={{ animationDelay: `${i * 20}ms`, animationDuration: '200ms' }}
                     >
                       <td className="px-3 py-2.5 text-xs text-muted-foreground tabular-nums">{formatActivityTime(row.timestamp, timezone)}</td>
-                      <td className="px-3 py-2.5">
+                      <td className="px-3 py-2.5 hidden sm:table-cell">
                         <Badge variant="default" className="text-[10px] px-1.5 py-0">spd</Badge>
                       </td>
-                      <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                      <td className="px-3 py-2.5 text-xs text-muted-foreground hidden md:table-cell">
                         <div className="max-w-[220px]">
                           <div className="truncate">{speedProviderLabel(row.test_provider)} / {row.server_name}</div>
                         </div>
                       </td>
-                      {/* DL */}
                       <td className={cn('px-3 py-2.5 text-xs tabular-nums font-semibold',
                         isLow ? 'text-red-400' : isWarn ? 'text-amber-400' : 'text-cyan-400')}>
                         {fmtSpeed(row.download_mbps, unit)}
                       </td>
-                      {/* UL */}
-                      <td className="px-3 py-2.5 text-xs tabular-nums text-right text-emerald-400">
+                      <td className="px-3 py-2.5 text-xs tabular-nums text-right text-emerald-400 hidden sm:table-cell">
                         {fmtSpeed(row.upload_mbps, unit)}
                       </td>
-                      {/* ping */}
                       <td className="px-3 py-2.5 text-xs tabular-nums text-right text-orange-400">
                         {fmtMs(row.ping_ms)}
                       </td>
@@ -173,15 +180,12 @@ function CombinedTable({ speedRows, latencyRows, settings }: {
                     style={{ animationDelay: `${i * 20}ms`, animationDuration: '200ms' }}
                   >
                     <td className="px-3 py-2 text-xs text-muted-foreground tabular-nums">{formatActivityTime(row.timestamp, timezone)}</td>
-                    <td className="px-3 py-2">
+                    <td className="px-3 py-2 hidden sm:table-cell">
                       <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">lat</Badge>
                     </td>
-                    <td className="px-3 py-2 text-xs text-muted-foreground">Latency</td>
-                    {/* hostname in DL/Host col */}
+                    <td className="px-3 py-2 text-xs text-muted-foreground hidden md:table-cell">Latency</td>
                     <td className="px-3 py-2 text-xs font-medium text-foreground">{host(row.url)}</td>
-                    {/* no upload for latency */}
-                    <td className="px-3 py-2 text-xs text-right text-muted-foreground/40">—</td>
-                    {/* latency ms */}
+                    <td className="px-3 py-2 text-xs text-right text-muted-foreground/40 hidden sm:table-cell">—</td>
                     <td className={cn('px-3 py-2 text-xs tabular-nums text-right',
                       isOk ? 'text-orange-400' : 'text-muted-foreground/50')}>
                       {isOk && row.latency_ms != null ? fmtMs(row.latency_ms) : '—'}
@@ -248,8 +252,31 @@ export function Dashboard() {
 
   const isTestRunning = runMutation.isPending || status?.isRunning;
 
+  // live countdown to next run
+  const [nextRunCountdown, setNextRunCountdown] = useState('—');
+  useEffect(() => {
+    const nextRun = status?.nextRun;
+    if (!nextRun || isTestRunning) { setNextRunCountdown('—'); return; }
+    const update = () => {
+      const diff = Math.max(0, new Date(nextRun).getTime() - Date.now());
+      const secs = Math.floor(diff / 1000);
+      const m = Math.floor(secs / 60);
+      const s = secs % 60;
+      setNextRunCountdown(`${m}:${s.toString().padStart(2, '0')}`);
+    };
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [status?.nextRun, isTestRunning]);
+
+  // update document title while testing
+  useEffect(() => {
+    document.title = isTestRunning ? 'Testing… — SpeedWatch' : 'SpeedWatch';
+    return () => { document.title = 'SpeedWatch'; };
+  }, [isTestRunning]);
+
   const RunButton = (
-    <Button onClick={() => runMutation.mutate()} disabled={isTestRunning} size="sm" className="gap-2">
+    <Button onClick={() => runMutation.mutate()} disabled={isTestRunning} size="sm" className="gap-2 shrink-0">
       {isTestRunning
         ? <><RefreshCw className="h-3.5 w-3.5 animate-spin" /> Testing…</>
         : <><Play          className="h-3.5 w-3.5" />             Run Test Now</>}
@@ -258,10 +285,29 @@ export function Dashboard() {
 
   const MonitorControls = (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-wider text-muted-foreground">
-        <span className="border border-border bg-muted px-2 py-1">Every {intervalLabel(settings?.test_interval_minutes)}</span>
-        <span className="border border-border bg-muted px-2 py-1">Server {providerSettingLabel(settings)}</span>
-        <span className="border border-border bg-muted px-2 py-1">Alert {settings ? `${100 - settings.alert_threshold_pct}% of plan` : '—'}</span>
+      <div className="flex flex-wrap items-center gap-2">
+        {/* EVERY pill — cyan */}
+        <div className="flex items-center border border-cyan-800/40 bg-cyan-950/30 text-[11px] uppercase tracking-wider overflow-hidden">
+          <span className="px-2 py-1 text-cyan-600">Every</span>
+          <span className="px-2 py-1 text-cyan-300 border-l border-cyan-800/40">{intervalLabel(settings?.test_interval_minutes)}</span>
+        </div>
+        {/* SERVER pill — violet */}
+        <div className="flex items-center border border-violet-800/40 bg-violet-950/30 text-[11px] uppercase tracking-wider overflow-hidden">
+          <span className="px-2 py-1 text-violet-600">Server</span>
+          <span className="px-2 py-1 text-violet-300 border-l border-violet-800/40">{providerSettingLabel(settings)}</span>
+        </div>
+        {/* ALERT pill — amber */}
+        <div className="flex items-center border border-amber-800/40 bg-amber-950/30 text-[11px] uppercase tracking-wider overflow-hidden">
+          <span className="px-2 py-1 text-amber-600">Alert</span>
+          <span className="px-2 py-1 text-amber-300 border-l border-amber-800/40">{settings ? `${100 - settings.alert_threshold_pct}% of plan` : '—'}</span>
+        </div>
+        {/* NEXT RUN pill — emerald (countdown) */}
+        {status?.nextRun && !isTestRunning && (
+          <div className="flex items-center border border-emerald-800/40 bg-emerald-950/30 text-[11px] uppercase tracking-wider overflow-hidden tabular-nums">
+            <span className="px-2 py-1 text-emerald-600">Next</span>
+            <span className="px-2 py-1 text-emerald-300 border-l border-emerald-800/40">{nextRunCountdown}</span>
+          </div>
+        )}
       </div>
       {RunButton}
     </div>

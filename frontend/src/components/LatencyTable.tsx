@@ -1,5 +1,7 @@
 import { useState } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Badge } from './ui/badge';
+import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
 import type { LatencyCheck } from '@/api/client';
 import { formatActivityTime } from '@/lib/datetime';
@@ -16,10 +18,15 @@ function hostname(url: string) {
 }
 
 const col = 'px-3 py-2.5 text-xs tabular-nums';
+const PAGE_SIZE = 20;
 
 export function LatencyTable({ data, isLoading, timezone }: LatencyTableProps) {
   const [selected, setSelected] = useState<LatencyCheck | null>(null);
-  const shown = data.slice().reverse().slice(0, 200);
+  const [page, setPage] = useState(1);
+
+  const sorted = data.slice().reverse();
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const shown = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <>
@@ -28,15 +35,24 @@ export function LatencyTable({ data, isLoading, timezone }: LatencyTableProps) {
           <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
             Latency Records — {data.length} entries
           </span>
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </Button>
+            <span>{page} / {totalPages}</span>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
 
-        <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
+        <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="sticky top-0 bg-card z-10">
+            <thead>
               <tr className="border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
                 <th className="px-3 py-2 text-left font-medium">Time</th>
                 <th className="px-3 py-2 text-left font-medium">Host</th>
-                <th className="px-3 py-2 text-right font-medium">Latency (ms)</th>
+                <th className="px-3 py-2 text-right font-medium hidden sm:table-cell">Latency (ms)</th>
                 <th className="px-3 py-2 text-left font-medium">Status</th>
               </tr>
             </thead>
@@ -60,7 +76,7 @@ export function LatencyTable({ data, isLoading, timezone }: LatencyTableProps) {
                   >
                     <td className={cn(col, 'text-muted-foreground')}>{formatActivityTime(row.timestamp, timezone, true)}</td>
                     <td className={cn(col, 'text-foreground font-medium')}>{hostname(row.url)}</td>
-                    <td className={cn(col, 'text-right', isOk ? 'text-orange-400' : 'text-muted-foreground')}>
+                    <td className={cn(col, 'text-right hidden sm:table-cell', isOk ? 'text-orange-400' : 'text-muted-foreground')}>
                       {row.latency_ms != null ? row.latency_ms.toFixed(0) : '—'}
                     </td>
                     <td className={col}>
