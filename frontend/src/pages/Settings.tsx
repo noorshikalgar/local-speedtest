@@ -28,6 +28,21 @@ const RETENTION_OPTIONS = [
   { label: '180 days (max)', value: 180 },
 ];
 
+const TIMEZONE_OPTIONS = [
+  'Asia/Kolkata',
+  'UTC',
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Los_Angeles',
+  'Europe/London',
+  'Europe/Berlin',
+  'Asia/Dubai',
+  'Asia/Singapore',
+  'Asia/Tokyo',
+  'Australia/Sydney',
+];
+
 export function SettingsPage() {
   const qc = useQueryClient();
   const { unit } = useUnit();
@@ -155,6 +170,27 @@ export function SettingsPage() {
                 ))}
               </SelectContent>
             </Select>
+          </CardContent>
+        </Card>
+
+        {/* Display */}
+        <Card>
+          <CardHeader><CardTitle>Display</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            <Label htmlFor="display-timezone">Timezone</Label>
+            <Input
+              id="display-timezone"
+              list="timezone-options"
+              value={form.display_timezone}
+              onChange={(e) => set('display_timezone', e.target.value)}
+              className="w-64"
+            />
+            <datalist id="timezone-options">
+              {TIMEZONE_OPTIONS.map((tz) => (
+                <option key={tz} value={tz} />
+              ))}
+            </datalist>
+            <p className="text-xs text-muted-foreground">Timestamps use this IANA timezone.</p>
           </CardContent>
         </Card>
 

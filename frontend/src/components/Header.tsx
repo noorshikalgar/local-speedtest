@@ -4,15 +4,17 @@ import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
 import { useUnit } from '@/contexts/unit';
 import { useTheme, THEME_LIST, THEME_LABELS, type Theme } from '@/contexts/theme';
+import { formatTimeOnly } from '@/lib/datetime';
 
 interface HeaderProps {
   isRunning?: boolean;
   nextRun?: string | null;
+  timezone?: string | null;
 }
 
 const THEME_ICONS: Record<Theme, string> = { void: '◉', terminal: '⬛', paper: '□' };
 
-export function Header({ isRunning, nextRun }: HeaderProps) {
+export function Header({ isRunning, nextRun, timezone }: HeaderProps) {
   const location = useLocation();
   const onSettings = location.pathname === '/settings';
   const { unit, setUnit } = useUnit();
@@ -43,7 +45,7 @@ export function Header({ isRunning, nextRun }: HeaderProps) {
         {/* next run */}
         {nextRun && !isRunning && (
           <span className="hidden md:block text-xs text-muted-foreground mr-2">
-            next {new Date(nextRun).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            next {formatTimeOnly(nextRun, timezone)}
           </span>
         )}
 

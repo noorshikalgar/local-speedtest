@@ -2,14 +2,15 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend,
 } from 'recharts';
-import { format, parseISO } from 'date-fns';
 import type { LatencyCheck } from '@/api/client';
 import { Tabs, TabsList, TabsTrigger } from './ui/tabs';
+import { formatActivityTime, formatChartTick } from '@/lib/datetime';
 
 interface LatencyChartProps {
   data: LatencyCheck[];
   range: '24h' | '7d' | '30d';
   onRangeChange: (r: '24h' | '7d' | '30d') => void;
+  timezone?: string | null;
 }
 
 const PALETTE = ['#f59e0b', '#6366f1', '#ec4899', '#14b8a6', '#f97316', '#84cc16', '#a855f7', '#3b82f6'];
@@ -41,23 +42,12 @@ function buildChartData(checks: LatencyCheck[]) {
   };
 }
 
-function formatTick(ts: string, range: '24h' | '7d' | '30d') {
-  try {
-    const d = parseISO(ts.replace(' ', 'T'));
-    if (range === '24h') return format(d, 'HH:mm');
-    if (range === '7d') return format(d, 'EEE HH:mm');
-    return format(d, 'MMM d');
-  } catch { return ts; }
-}
-
-function CustomTooltip({ active, payload, label }: any) {
+function CustomTooltip({ active, payload, label, timezone }: any) {
   if (!active || !payload?.length) return null;
-  let dateStr = '';
-  try { dateStr = format(parseISO(String(label).replace(' ', 'T')), 'MMM d, HH:mm'); } catch { dateStr = label; }
 
   return (
     <div className="border border-border bg-card px-3 py-2 text-xs space-y-1">
-      <p className="text-muted-foreground mb-1">{dateStr}</p>
+      <p className="text-muted-foreground mb-1">{formatActivityTime(String(label), timezone)}</p>
       {payload.map((p: any) => (
         <div key={p.dataKey} className="flex items-center gap-2">
           <span className="inline-block h-2 w-2" style={{ background: p.color }} />
@@ -77,7 +67,7 @@ const RANGES = [
   { label: '30d', value: '30d' as const },
 ];
 
-export function LatencyChart({ data, range, onRangeChange }: LatencyChartProps) {
+export function LatencyChart({ data, range, onRangeChange, timezone }: LatencyChartProps) {
   const { rows, hosts } = buildChartData(data);
 
   return (
@@ -106,7 +96,7 @@ export function LatencyChart({ data, range, onRangeChange }: LatencyChartProps) 
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
               <XAxis
                 dataKey="timestamp"
-                tickFormatter={(v) => formatTick(v, range)}
+                tickFormatter={(v) => formatChartTick(v, range, timezone)}
                 tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10, fontFamily: 'monospace' }}
                 axisLine={false} tickLine={false} minTickGap={40}
               />
@@ -114,7 +104,7 @@ export function LatencyChart({ data, range, onRangeChange }: LatencyChartProps) 
                 tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10, fontFamily: 'monospace' }}
                 axisLine={false} tickLine={false} unit="ms"
               />
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip content={<CustomTooltip timezone={timezone} />} />
               <Legend
                 wrapperStyle={{ fontSize: 11, fontFamily: 'monospace', paddingTop: 8 }}
                 formatter={(v) => <span style={{ color: 'hsl(var(--muted-foreground))' }}>{v}</span>}

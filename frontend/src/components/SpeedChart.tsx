@@ -2,11 +2,11 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ReferenceLine, ResponsiveContainer, Legend,
 } from 'recharts';
-import { format, parseISO } from 'date-fns';
 import type { SpeedResult, Settings, TimeRange } from '@/api/client';
 import { toDisplaySpeed, unitLabel } from '@/lib/utils';
 import { useUnit } from '@/contexts/unit';
 import { Tabs, TabsList, TabsTrigger } from './ui/tabs';
+import { formatActivityTime, formatChartTick } from '@/lib/datetime';
 
 interface SpeedChartProps {
   data: SpeedResult[];
@@ -23,24 +23,13 @@ const RANGES: { label: string; value: TimeRange }[] = [
   { label: '90d', value: '90d' },
 ];
 
-function formatTick(ts: string, range: TimeRange) {
-  try {
-    const d = parseISO(ts.replace(' ', 'T'));
-    if (range === '24h') return format(d, 'HH:mm');
-    if (range === '7d') return format(d, 'EEE HH:mm');
-    return format(d, 'MMM d');
-  } catch { return ts; }
-}
-
-function CustomTooltip({ active, payload, label, unit }: any) {
+function CustomTooltip({ active, payload, label, unit, timezone }: any) {
   if (!active || !payload?.length) return null;
-  let dateStr = '';
-  try { dateStr = format(parseISO(String(label).replace(' ', 'T')), 'MMM d, HH:mm'); } catch { dateStr = label; }
   const ul = unitLabel(unit);
 
   return (
     <div className="border border-border bg-card px-3 py-2 text-xs space-y-1">
-      <p className="text-muted-foreground mb-1">{dateStr}</p>
+      <p className="text-muted-foreground mb-1">{formatActivityTime(String(label), timezone)}</p>
       {payload.map((p: any) => (
         <div key={p.dataKey} className="flex items-center gap-2">
           <span className="inline-block h-2 w-2" style={{ background: p.color }} />
@@ -57,6 +46,7 @@ function CustomTooltip({ active, payload, label, unit }: any) {
 export function SpeedChart({ data, settings, range, onRangeChange, compact = false }: SpeedChartProps) {
   const { unit } = useUnit();
   const ul = unitLabel(unit);
+  const timezone = settings?.display_timezone;
 
   const chartData = data.map((r) => ({
     timestamp: r.timestamp,
@@ -109,7 +99,7 @@ export function SpeedChart({ data, settings, range, onRangeChange, compact = fal
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
               <XAxis
                 dataKey="timestamp"
-                tickFormatter={(v) => formatTick(v, range)}
+                tickFormatter={(v) => formatChartTick(v, range, timezone)}
                 tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10, fontFamily: 'monospace' }}
                 axisLine={false} tickLine={false} minTickGap={40}
               />
@@ -119,7 +109,7 @@ export function SpeedChart({ data, settings, range, onRangeChange, compact = fal
                 axisLine={false} tickLine={false}
                 tickFormatter={(v) => unit === 'MBps' ? v.toFixed(1) : String(v)}
               />
-              <Tooltip content={<CustomTooltip unit={unit} />} />
+              <Tooltip content={<CustomTooltip unit={unit} timezone={timezone} />} />
               {!compact && (
                 <Legend
                   wrapperStyle={{ fontSize: 11, fontFamily: 'monospace', paddingTop: 8 }}

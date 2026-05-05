@@ -3,6 +3,18 @@ import { getAllSettings, setSetting } from '../db.js';
 import { restartScheduler } from '../scheduler.js';
 
 const router = Router();
+const DEFAULT_TIMEZONE = 'Asia/Kolkata';
+
+function normalizeTimezone(value: unknown): string {
+  const timezone = String(value ?? '').trim();
+  if (timezone === 'Asia/Kolkatta') return DEFAULT_TIMEZONE;
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: timezone }).format(new Date());
+    return timezone;
+  } catch {
+    return DEFAULT_TIMEZONE;
+  }
+}
 
 router.get('/', (_req, res) => {
   const raw = getAllSettings();
@@ -12,6 +24,7 @@ router.get('/', (_req, res) => {
     test_interval_minutes: parseInt(raw.test_interval_minutes ?? '120', 10),
     retention_days: parseInt(raw.retention_days ?? '90', 10),
     alert_threshold_pct: parseInt(raw.alert_threshold_pct ?? '20', 10),
+    display_timezone: normalizeTimezone(raw.display_timezone ?? DEFAULT_TIMEZONE),
     latency_sites: JSON.parse(raw.latency_sites ?? '[]'),
   });
 });
@@ -31,6 +44,10 @@ router.put('/', (req, res) => {
 
   if (body.latency_sites !== undefined && Array.isArray(body.latency_sites)) {
     setSetting('latency_sites', JSON.stringify(body.latency_sites));
+  }
+
+  if (body.display_timezone !== undefined) {
+    setSetting('display_timezone', normalizeTimezone(body.display_timezone));
   }
 
   if (intervalChanged) restartScheduler();

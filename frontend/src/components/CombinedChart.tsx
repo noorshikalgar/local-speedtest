@@ -2,10 +2,10 @@ import {
   ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer,
 } from 'recharts';
-import { format, parseISO } from 'date-fns';
 import type { SpeedResult, Settings, LatencyCheck } from '@/api/client';
 import { toDisplaySpeed, unitLabel } from '@/lib/utils';
 import { useUnit } from '@/contexts/unit';
+import { formatActivityTime, formatChartTick } from '@/lib/datetime';
 
 interface CombinedChartProps {
   speedData: SpeedResult[];
@@ -69,14 +69,8 @@ function mergeData(
   return { rows, siteKeys };
 }
 
-function formatTick(ts: string) {
-  try { return format(parseISO(ts.replace(' ', 'T')), 'HH:mm'); } catch { return ts; }
-}
-
-function CustomTooltip({ active, payload, label, unitRaw }: any) {
+function CustomTooltip({ active, payload, label, unitRaw, timezone }: any) {
   if (!active || !payload?.length) return null;
-  let dateStr = '';
-  try { dateStr = format(parseISO(String(label).replace(' ', 'T')), 'MMM d, HH:mm'); } catch { dateStr = label; }
   const ul = unitLabel(unitRaw);
 
   const speedKeys = new Set(['download', 'upload']);
@@ -84,7 +78,7 @@ function CustomTooltip({ active, payload, label, unitRaw }: any) {
 
   return (
     <div className="border border-border bg-card px-3 py-2 text-xs space-y-1 min-w-[180px]">
-      <p className="text-muted-foreground mb-1">{dateStr}</p>
+      <p className="text-muted-foreground mb-1">{formatActivityTime(String(label), timezone)}</p>
       {payload.map((p: any) => {
         const isSpeed = speedKeys.has(p.dataKey);
         const isPing = p.dataKey === pingKey;
@@ -108,6 +102,7 @@ function CustomTooltip({ active, payload, label, unitRaw }: any) {
 export function CombinedChart({ speedData, latencyData, settings }: CombinedChartProps) {
   const { unit } = useUnit();
   const ul = unitLabel(unit);
+  const timezone = settings?.display_timezone;
 
   const { rows, siteKeys } = mergeData(speedData, latencyData, ul, unit);
 
@@ -176,7 +171,7 @@ export function CombinedChart({ speedData, latencyData, settings }: CombinedChar
 
               <XAxis
                 dataKey="timestamp"
-                tickFormatter={formatTick}
+                tickFormatter={(v) => formatChartTick(v, '24h', timezone)}
                 tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10, fontFamily: 'monospace' }}
                 axisLine={false} tickLine={false} minTickGap={50}
               />
@@ -200,7 +195,7 @@ export function CombinedChart({ speedData, latencyData, settings }: CombinedChar
                 tickFormatter={(v) => `${v}`}
               />
 
-              <Tooltip content={<CustomTooltip unitRaw={unit} />} />
+              <Tooltip content={<CustomTooltip unitRaw={unit} timezone={timezone} />} />
 
               {/* Speed areas */}
               <Area

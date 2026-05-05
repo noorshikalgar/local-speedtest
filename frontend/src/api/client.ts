@@ -26,6 +26,7 @@ export interface Settings {
   test_interval_minutes: number;
   retention_days: number;
   alert_threshold_pct: number;
+  display_timezone: string;
   latency_sites: string[];
 }
 

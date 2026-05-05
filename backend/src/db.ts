@@ -48,6 +48,7 @@ const DEFAULTS: Record<string, string> = {
   test_interval_minutes: '120',
   retention_days: '90',
   alert_threshold_pct: '20',
+  display_timezone: 'Asia/Kolkata',
   latency_sites: JSON.stringify(['https://google.com', 'https://cloudflare.com', 'https://github.com']),
 };
 

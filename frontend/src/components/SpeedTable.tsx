@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { format, parseISO } from 'date-fns';
 import { ChevronLeft, ChevronRight, ExternalLink } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { speedApi } from '@/api/client';
@@ -9,14 +8,11 @@ import { Button } from './ui/button';
 import { fmtSpeed, fmtMs, speedStatus, unitLabel } from '@/lib/utils';
 import { useUnit } from '@/contexts/unit';
 import { cn } from '@/lib/utils';
+import { formatActivityTime } from '@/lib/datetime';
 
 interface SpeedTableProps {
   settings: Settings | null;
   refreshKey?: number;
-}
-
-function fmtTs(ts: string) {
-  try { return format(parseISO(ts.replace(' ', 'T')), 'MMM d, HH:mm'); } catch { return ts; }
 }
 
 export function SpeedTable({ settings, refreshKey = 0 }: SpeedTableProps) {
@@ -35,6 +31,7 @@ export function SpeedTable({ settings, refreshKey = 0 }: SpeedTableProps) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const planDl = settings?.plan_download_mbps ?? 100;
   const threshold = settings?.alert_threshold_pct ?? 20;
+  const timezone = settings?.display_timezone;
   const colClass = 'px-3 py-2.5 text-xs tabular-nums';
 
   return (
@@ -90,7 +87,7 @@ export function SpeedTable({ settings, refreshKey = 0 }: SpeedTableProps) {
                   style={{ animationDelay: `${i * 25}ms`, animationDuration: '200ms' }}
                 >
                   <td className={cn(colClass, 'text-muted-foreground')}>
-                    {fmtTs(row.timestamp)}
+                    {formatActivityTime(row.timestamp, timezone)}
                     {row.is_manual === 1 && <span className="ml-1 text-primary/60 text-[10px]">manual</span>}
                   </td>
                   <td className={cn(colClass, 'text-right font-medium', isLow ? 'text-red-400' : isWarn ? 'text-amber-400' : 'text-cyan-400')}>

@@ -1,15 +1,12 @@
-import { format, parseISO } from 'date-fns';
 import { Badge } from './ui/badge';
 import { cn } from '@/lib/utils';
 import type { LatencyCheck } from '@/api/client';
+import { formatActivityTime } from '@/lib/datetime';
 
 interface LatencyTableProps {
   data: LatencyCheck[];
   isLoading?: boolean;
-}
-
-function fmtTs(ts: string) {
-  try { return format(parseISO(ts.replace(' ', 'T')), 'MMM d, HH:mm:ss'); } catch { return ts; }
+  timezone?: string | null;
 }
 
 function hostname(url: string) {
@@ -18,7 +15,7 @@ function hostname(url: string) {
 
 const col = 'px-3 py-2.5 text-xs tabular-nums';
 
-export function LatencyTable({ data, isLoading }: LatencyTableProps) {
+export function LatencyTable({ data, isLoading, timezone }: LatencyTableProps) {
   const shown = data.slice().reverse().slice(0, 200);
 
   return (
@@ -56,7 +53,7 @@ export function LatencyTable({ data, isLoading }: LatencyTableProps) {
                   className="border-b border-border/50 hover:bg-muted/30 transition-colors animate-in fade-in-0 slide-in-from-bottom-1"
                   style={{ animationDelay: `${i * 20}ms`, animationDuration: '200ms' }}
                 >
-                  <td className={cn(col, 'text-muted-foreground')}>{fmtTs(row.timestamp)}</td>
+                  <td className={cn(col, 'text-muted-foreground')}>{formatActivityTime(row.timestamp, timezone, true)}</td>
                   <td className={cn(col, 'text-foreground font-medium')}>{hostname(row.url)}</td>
                   <td className={cn(col, 'text-right', isOk ? 'text-orange-400' : 'text-muted-foreground')}>
                     {row.latency_ms != null ? row.latency_ms.toFixed(0) : '—'}

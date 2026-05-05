@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Play, RefreshCw } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
 import {
   speedApi, settingsApi, latencyApi,
   type TimeRange, type SpeedResult, type LatencyCheck, type Settings,
@@ -20,13 +19,11 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { fmtSpeed, fmtMs, speedStatus, unitLabel } from '@/lib/utils';
 import { useUnit } from '@/contexts/unit';
 import { cn } from '@/lib/utils';
+import { formatActivityTime } from '@/lib/datetime';
 
 type LatencyRange = '24h' | '7d' | '30d';
 type ViewTab = 'combined' | 'speed' | 'latency';
 
-function fmtTs(ts: string) {
-  try { return format(parseISO(ts.replace(' ', 'T')), 'MMM d, HH:mm'); } catch { return ts; }
-}
 function host(url: string) {
   try { return new URL(url).hostname; } catch { return url; }
 }
@@ -56,6 +53,7 @@ function CombinedTable({ speedRows, latencyRows, settings }: {
 }) {
   const { unit } = useUnit();
   const ul = unitLabel(unit);
+  const timezone = settings?.display_timezone;
   const planDl   = settings?.plan_download_mbps ?? 100;
   const threshold = settings?.alert_threshold_pct ?? 20;
 
@@ -111,7 +109,7 @@ function CombinedTable({ speedRows, latencyRows, settings }: {
                       )}
                       style={{ animationDelay: `${i * 20}ms`, animationDuration: '200ms' }}
                     >
-                      <td className="px-3 py-2.5 text-xs text-muted-foreground tabular-nums">{fmtTs(row.timestamp)}</td>
+                      <td className="px-3 py-2.5 text-xs text-muted-foreground tabular-nums">{formatActivityTime(row.timestamp, timezone)}</td>
                       <td className="px-3 py-2.5">
                         <Badge variant="default" className="text-[10px] px-1.5 py-0">spd</Badge>
                       </td>
@@ -151,7 +149,7 @@ function CombinedTable({ speedRows, latencyRows, settings }: {
                     )}
                     style={{ animationDelay: `${i * 20}ms`, animationDuration: '200ms' }}
                   >
-                    <td className="px-3 py-2 text-xs text-muted-foreground tabular-nums">{fmtTs(row.timestamp)}</td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground tabular-nums">{formatActivityTime(row.timestamp, timezone)}</td>
                     <td className="px-3 py-2">
                       <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">lat</Badge>
                     </td>
@@ -225,7 +223,7 @@ export function Dashboard() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <Header isRunning={isTestRunning} nextRun={status?.nextRun} />
+      <Header isRunning={isTestRunning} nextRun={status?.nextRun} timezone={settings?.display_timezone} />
 
       <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-5 space-y-4">
         <Tabs value={view} onValueChange={v => setView(v as ViewTab)}>
@@ -255,8 +253,8 @@ export function Dashboard() {
 
           {/* ── Latency ── */}
           <TabsContent value="latency" className="space-y-4 mt-4">
-            <LatencyChart data={latencyData} range={latencyRange} onRangeChange={setLatencyRange} />
-            <LatencyTable data={latencyData} isLoading={latencyLoading} />
+            <LatencyChart data={latencyData} range={latencyRange} onRangeChange={setLatencyRange} timezone={settings?.display_timezone} />
+            <LatencyTable data={latencyData} isLoading={latencyLoading} timezone={settings?.display_timezone} />
           </TabsContent>
         </Tabs>
       </main>
