@@ -6,6 +6,7 @@ import { Header } from '@/components/Header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -42,6 +43,12 @@ const TIMEZONE_OPTIONS = [
   'Asia/Tokyo',
   'Australia/Sydney',
 ];
+
+const SPEED_TEST_PROVIDERS = [
+  { label: 'Cloudflare', value: 'cloudflare' },
+  { label: 'Google', value: 'google' },
+  { label: 'Ookla Speedtest', value: 'ookla' },
+] as const;
 
 export function SettingsPage() {
   const qc = useQueryClient();
@@ -170,6 +177,43 @@ export function SettingsPage() {
                 ))}
               </SelectContent>
             </Select>
+          </CardContent>
+        </Card>
+
+        {/* Speed Test Server */}
+        <Card>
+          <CardHeader><CardTitle>Speed Test Server</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+              <div className="space-y-2">
+                <Label>Provider</Label>
+                <Select
+                  value={form.speed_test_provider}
+                  onValueChange={(v) => set('speed_test_provider', v as Settings['speed_test_provider'])}
+                  disabled={form.speed_test_auto_round_robin}
+                >
+                  <SelectTrigger className="w-full sm:w-64"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {SPEED_TEST_PROVIDERS.map((provider) => (
+                      <SelectItem key={provider.value} value={provider.value}>{provider.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2 pb-2">
+                <Switch
+                  id="speed-test-auto-round-robin"
+                  checked={form.speed_test_auto_round_robin}
+                  onCheckedChange={(checked) => set('speed_test_auto_round_robin', checked)}
+                />
+                <Label htmlFor="speed-test-auto-round-robin" className="text-xs text-muted-foreground">
+                  Auto select server round robin for each test
+                </Label>
+              </div>
+            </div>
+            {form.speed_test_provider === 'ookla' && !form.speed_test_auto_round_robin && (
+              <p className="text-xs text-muted-foreground">Ookla requires the official speedtest CLI on the server.</p>
+            )}
           </CardContent>
         </Card>
 

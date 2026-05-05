@@ -1,7 +1,7 @@
 import cron from 'node-cron';
-import { runSpeedTest } from './speedtest.js';
+import { normalizeSpeedTestProvider, runSpeedTest, type SpeedTestProvider } from './speedtest.js';
 import { checkLatency } from './latency.js';
-import { getSetting, insertSpeedResult, insertLatencyCheck, pruneOldData } from './db.js';
+import { getSetting, setSetting, insertSpeedResult, insertLatencyCheck, pruneOldData } from './db.js';
 
 let currentTask: cron.ScheduledTask | null = null;
 let isRunning = false;
@@ -15,6 +15,20 @@ function minutesToCron(minutes: number): string {
   return `0 */2 * * *`; // fallback
 }
 
+const ROUND_ROBIN_PROVIDERS: SpeedTestProvider[] = ['cloudflare', 'google', 'ookla'];
+
+function nextProvider(): SpeedTestProvider {
+  if (getSetting('speed_test_auto_round_robin') !== 'true') {
+    return normalizeSpeedTestProvider(getSetting('speed_test_provider') ?? 'cloudflare');
+  }
+
+  const rawIndex = parseInt(getSetting('speed_test_round_robin_index') ?? '0', 10);
+  const index = Number.isFinite(rawIndex) ? rawIndex : 0;
+  const provider = ROUND_ROBIN_PROVIDERS[index % ROUND_ROBIN_PROVIDERS.length];
+  setSetting('speed_test_round_robin_index', String((index + 1) % ROUND_ROBIN_PROVIDERS.length));
+  return provider;
+}
+
 async function runAllTests() {
   if (isRunning) return;
   isRunning = true;
@@ -22,9 +36,10 @@ async function runAllTests() {
   console.log(`[scheduler] Running speed test at ${lastRun}`);
 
   try {
-    const result = await runSpeedTest();
+    const provider = nextProvider();
+    const result = await runSpeedTest(provider);
     insertSpeedResult({ ...result, is_manual: false });
-    console.log(`[scheduler] Done — ${result.download_mbps ?? 'ERR'} Mbps down`);
+    console.log(`[scheduler] Done — ${provider} — ${result.download_mbps ?? 'ERR'} Mbps down`);
 
     const sitesRaw = getSetting('latency_sites') ?? '[]';
     const sites: string[] = JSON.parse(sitesRaw);

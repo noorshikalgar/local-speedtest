@@ -1,6 +1,5 @@
 import { Router } from 'express';
-import { getSpeedResults, getLatestSpeed, getSpeedPage, insertSpeedResult } from '../db.js';
-import { runSpeedTest } from '../speedtest.js';
+import { getSpeedResults, getLatestSpeed, getSpeedPage } from '../db.js';
 import { runAllTests, getSchedulerStatus } from '../scheduler.js';
 
 const router = Router();

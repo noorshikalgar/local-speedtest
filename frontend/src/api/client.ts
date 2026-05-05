@@ -5,6 +5,7 @@ export interface SpeedResult {
   upload_mbps: number | null;
   ping_ms: number | null;
   jitter_ms: number | null;
+  test_provider: SpeedTestProvider;
   server_name: string;
   server_location: string;
   result_url: string;
@@ -27,10 +28,13 @@ export interface Settings {
   retention_days: number;
   alert_threshold_pct: number;
   display_timezone: string;
+  speed_test_provider: SpeedTestProvider;
+  speed_test_auto_round_robin: boolean;
   latency_sites: string[];
 }
 
 export type TimeRange = '24h' | '7d' | '30d' | '90d';
+export type SpeedTestProvider = 'cloudflare' | 'google' | 'ookla';
 
 const API = '/api';
 

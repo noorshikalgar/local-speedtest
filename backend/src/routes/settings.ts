@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { getAllSettings, setSetting } from '../db.js';
 import { restartScheduler } from '../scheduler.js';
+import { normalizeSpeedTestProvider } from '../speedtest.js';
 
 const router = Router();
 const DEFAULT_TIMEZONE = 'Asia/Kolkata';
@@ -25,6 +26,8 @@ router.get('/', (_req, res) => {
     retention_days: parseInt(raw.retention_days ?? '90', 10),
     alert_threshold_pct: parseInt(raw.alert_threshold_pct ?? '20', 10),
     display_timezone: normalizeTimezone(raw.display_timezone ?? DEFAULT_TIMEZONE),
+    speed_test_provider: normalizeSpeedTestProvider(raw.speed_test_provider ?? 'cloudflare'),
+    speed_test_auto_round_robin: raw.speed_test_auto_round_robin === 'true',
     latency_sites: JSON.parse(raw.latency_sites ?? '[]'),
   });
 });
@@ -48,6 +51,14 @@ router.put('/', (req, res) => {
 
   if (body.display_timezone !== undefined) {
     setSetting('display_timezone', normalizeTimezone(body.display_timezone));
+  }
+
+  if (body.speed_test_provider !== undefined) {
+    setSetting('speed_test_provider', normalizeSpeedTestProvider(body.speed_test_provider));
+  }
+
+  if (body.speed_test_auto_round_robin !== undefined) {
+    setSetting('speed_test_auto_round_robin', body.speed_test_auto_round_robin ? 'true' : 'false');
   }
 
   if (intervalChanged) restartScheduler();

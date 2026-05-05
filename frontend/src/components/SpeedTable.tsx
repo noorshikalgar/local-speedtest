@@ -5,7 +5,7 @@ import { speedApi } from '@/api/client';
 import type { Settings } from '@/api/client';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
-import { fmtSpeed, fmtMs, speedStatus, unitLabel } from '@/lib/utils';
+import { fmtSpeed, fmtMs, speedProviderLabel, speedStatus, unitLabel } from '@/lib/utils';
 import { useUnit } from '@/contexts/unit';
 import { cn } from '@/lib/utils';
 import { formatActivityTime } from '@/lib/datetime';
@@ -61,15 +61,16 @@ export function SpeedTable({ settings, refreshKey = 0 }: SpeedTableProps) {
               <th className="px-3 py-2 text-right font-medium">Ping (ms)</th>
               <th className="px-3 py-2 text-right font-medium">Jitter (ms)</th>
               <th className="px-3 py-2 text-left font-medium">Status</th>
+              <th className="px-3 py-2 text-left font-medium">Provider</th>
               <th className="px-3 py-2 text-left font-medium">Server</th>
             </tr>
           </thead>
           <tbody>
             {isLoading && (
-              <tr><td colSpan={7} className="px-3 py-8 text-center text-xs text-muted-foreground">Loading…</td></tr>
+              <tr><td colSpan={8} className="px-3 py-8 text-center text-xs text-muted-foreground">Loading…</td></tr>
             )}
             {!isLoading && rows.length === 0 && (
-              <tr><td colSpan={7} className="px-3 py-8 text-center text-xs text-muted-foreground">No records yet</td></tr>
+              <tr><td colSpan={8} className="px-3 py-8 text-center text-xs text-muted-foreground">No records yet</td></tr>
             )}
             {rows.map((row, i) => {
               const dlSt = row.error ? 'low' : speedStatus(row.download_mbps, planDl, threshold);
@@ -102,6 +103,7 @@ export function SpeedTable({ settings, refreshKey = 0 }: SpeedTableProps) {
                       : isWarn ? <Badge variant="warning">warn</Badge>
                       : <Badge variant="destructive">low</Badge>}
                   </td>
+                  <td className={cn(colClass, 'text-muted-foreground')}>{speedProviderLabel(row.test_provider)}</td>
                   <td className={cn(colClass, 'text-muted-foreground')}>
                     <div className="flex items-center gap-1">
                       <span>{row.server_name}</span>

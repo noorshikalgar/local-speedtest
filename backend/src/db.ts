@@ -18,6 +18,7 @@ db.exec(`
     upload_mbps REAL,
     ping_ms REAL,
     jitter_ms REAL,
+    test_provider TEXT DEFAULT 'cloudflare',
     server_name TEXT DEFAULT 'Cloudflare',
     server_location TEXT DEFAULT '',
     result_url TEXT DEFAULT '',
@@ -42,6 +43,11 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_latency_ts ON latency_checks(timestamp);
 `);
 
+const speedColumns = db.prepare(`PRAGMA table_info(speed_results)`).all() as { name: string }[];
+if (!speedColumns.some(c => c.name === 'test_provider')) {
+  db.exec(`ALTER TABLE speed_results ADD COLUMN test_provider TEXT DEFAULT 'cloudflare'`);
+}
+
 const DEFAULTS: Record<string, string> = {
   plan_download_mbps: '100',
   plan_upload_mbps: '50',
@@ -49,6 +55,9 @@ const DEFAULTS: Record<string, string> = {
   retention_days: '90',
   alert_threshold_pct: '20',
   display_timezone: 'Asia/Kolkata',
+  speed_test_provider: 'cloudflare',
+  speed_test_auto_round_robin: 'false',
+  speed_test_round_robin_index: '0',
   latency_sites: JSON.stringify(['https://google.com', 'https://cloudflare.com', 'https://github.com']),
 };
 
@@ -73,6 +82,7 @@ export function insertSpeedResult(r: {
   upload_mbps: number | null;
   ping_ms: number | null;
   jitter_ms: number | null;
+  test_provider: string;
   server_name: string;
   server_location: string;
   result_url: string;
@@ -80,9 +90,9 @@ export function insertSpeedResult(r: {
   error?: string;
 }) {
   return db.prepare(`
-    INSERT INTO speed_results (timestamp, download_mbps, upload_mbps, ping_ms, jitter_ms, server_name, server_location, result_url, is_manual, error)
-    VALUES (datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(r.download_mbps, r.upload_mbps, r.ping_ms, r.jitter_ms, r.server_name, r.server_location, r.result_url, r.is_manual ? 1 : 0, r.error ?? null);
+    INSERT INTO speed_results (timestamp, download_mbps, upload_mbps, ping_ms, jitter_ms, test_provider, server_name, server_location, result_url, is_manual, error)
+    VALUES (datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(r.download_mbps, r.upload_mbps, r.ping_ms, r.jitter_ms, r.test_provider, r.server_name, r.server_location, r.result_url, r.is_manual ? 1 : 0, r.error ?? null);
 }
 
 export function insertLatencyCheck(url: string, latency_ms: number | null, status: string) {

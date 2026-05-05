@@ -1,8 +1,15 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import type { SpeedTestProvider } from '@/api/client';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
+}
+
+export function speedProviderLabel(provider?: SpeedTestProvider | string | null): string {
+  if (provider === 'google') return 'Google';
+  if (provider === 'ookla') return 'Ookla';
+  return 'Cloudflare';
 }
 
 export type SpeedUnit = 'Mbps' | 'MBps';

@@ -16,7 +16,7 @@ import { LatencyTable } from '@/components/LatencyTable';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { fmtSpeed, fmtMs, speedStatus, unitLabel } from '@/lib/utils';
+import { fmtSpeed, fmtMs, speedProviderLabel, speedStatus, unitLabel } from '@/lib/utils';
 import { useUnit } from '@/contexts/unit';
 import { cn } from '@/lib/utils';
 import { formatActivityTime } from '@/lib/datetime';
@@ -78,6 +78,7 @@ function CombinedTable({ speedRows, latencyRows, settings }: {
               <tr className="border-b border-border text-[10px] uppercase tracking-wider text-muted-foreground">
                 <th className="px-3 py-2 text-left  font-medium w-32">Time</th>
                 <th className="px-3 py-2 text-left  font-medium w-16">Type</th>
+                <th className="px-3 py-2 text-left  font-medium w-36">Server</th>
                 {/* shared col: download speed OR hostname */}
                 <th className="px-3 py-2 text-left  font-medium">DL ({ul}) / Host</th>
                 {/* upload — only speed rows use this */}
@@ -112,6 +113,9 @@ function CombinedTable({ speedRows, latencyRows, settings }: {
                       <td className="px-3 py-2.5 text-xs text-muted-foreground tabular-nums">{formatActivityTime(row.timestamp, timezone)}</td>
                       <td className="px-3 py-2.5">
                         <Badge variant="default" className="text-[10px] px-1.5 py-0">spd</Badge>
+                      </td>
+                      <td className="px-3 py-2.5 text-xs text-muted-foreground">
+                        {speedProviderLabel(row.test_provider)} / {row.server_name}
                       </td>
                       {/* DL */}
                       <td className={cn('px-3 py-2.5 text-xs tabular-nums font-semibold',
@@ -153,6 +157,7 @@ function CombinedTable({ speedRows, latencyRows, settings }: {
                     <td className="px-3 py-2">
                       <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-muted-foreground">lat</Badge>
                     </td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">Latency</td>
                     {/* hostname in DL/Host col */}
                     <td className="px-3 py-2 text-xs font-medium text-foreground">{host(row.url)}</td>
                     {/* no upload for latency */}
