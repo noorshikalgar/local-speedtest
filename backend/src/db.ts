@@ -26,6 +26,7 @@ db.exec(`
     isp_name TEXT DEFAULT '',
     client_ip TEXT DEFAULT '',
     result_url TEXT DEFAULT '',
+    diagnostics TEXT DEFAULT '',
     is_manual INTEGER DEFAULT 0,
     error TEXT
   );
@@ -61,6 +62,7 @@ const missingSpeedColumns: [string, string][] = [
   ['server_host', `ALTER TABLE speed_results ADD COLUMN server_host TEXT DEFAULT ''`],
   ['isp_name', `ALTER TABLE speed_results ADD COLUMN isp_name TEXT DEFAULT ''`],
   ['client_ip', `ALTER TABLE speed_results ADD COLUMN client_ip TEXT DEFAULT ''`],
+  ['diagnostics', `ALTER TABLE speed_results ADD COLUMN diagnostics TEXT DEFAULT ''`],
 ];
 for (const [column, sql] of missingSpeedColumns) {
   if (!speedColumnNames.has(column)) db.exec(sql);
@@ -122,12 +124,13 @@ export function insertSpeedResult(r: {
   isp_name: string;
   client_ip: string;
   result_url: string;
+  diagnostics: string;
   is_manual: boolean;
   error?: string;
 }) {
   return db.prepare(`
-    INSERT INTO speed_results (timestamp, download_mbps, upload_mbps, ping_ms, jitter_ms, test_provider, server_name, server_location, server_id, server_host, isp_name, client_ip, result_url, is_manual, error)
-    VALUES (datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO speed_results (timestamp, download_mbps, upload_mbps, ping_ms, jitter_ms, test_provider, server_name, server_location, server_id, server_host, isp_name, client_ip, result_url, diagnostics, is_manual, error)
+    VALUES (datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     r.download_mbps,
     r.upload_mbps,
@@ -141,6 +144,7 @@ export function insertSpeedResult(r: {
     r.isp_name,
     r.client_ip,
     r.result_url,
+    r.diagnostics,
     r.is_manual ? 1 : 0,
     r.error ?? null,
   );

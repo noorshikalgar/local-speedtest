@@ -141,6 +141,13 @@ export function SpeedDetailsDrawer({
               <p className="break-words text-xs text-red-300">{row.error}</p>
             </DetailSection>
           )}
+          {row.diagnostics && (
+            <DetailSection title="Network Diagnostics">
+              <pre className="whitespace-pre-wrap break-words border border-border bg-background p-3 text-[11px] leading-relaxed text-muted-foreground">
+                {row.diagnostics}
+              </pre>
+            </DetailSection>
+          )}
         </>
       )}
     </Drawer>

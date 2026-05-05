@@ -1,4 +1,5 @@
 import { execFile } from 'child_process';
+import dns from 'dns/promises';
 import { promisify } from 'util';
 
 export interface SpeedResult {
@@ -14,6 +15,7 @@ export interface SpeedResult {
   isp_name: string;
   client_ip: string;
   result_url: string;
+  diagnostics: string;
   error?: string;
 }
 
@@ -156,6 +158,38 @@ function ooklaErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message.split('\n')[0] : String(err);
 }
 
+async function fetchDiagnostic(url: string): Promise<string> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5_000);
+    const res = await fetch(url, { method: 'HEAD', signal: controller.signal });
+    clearTimeout(timeout);
+    return `${url}: reachable (${res.status})`;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return `${url}: ${msg}`;
+  }
+}
+
+async function ooklaDiagnostics(): Promise<string> {
+  const details: string[] = [];
+  try {
+    const [v4, v6] = await Promise.allSettled([
+      dns.resolve4('speedtest.net'),
+      dns.resolve6('speedtest.net'),
+    ]);
+    details.push(v4.status === 'fulfilled' && v4.value.length > 0 ? `DNS IPv4 ok (${v4.value[0]})` : 'DNS IPv4 failed');
+    details.push(v6.status === 'fulfilled' && v6.value.length > 0 ? `DNS IPv6 ok (${v6.value[0]})` : 'DNS IPv6 unavailable or failed');
+  } catch (err) {
+    details.push(`DNS check failed (${err instanceof Error ? err.message : String(err)})`);
+  }
+
+  details.push(await fetchDiagnostic('https://www.speedtest.net/'));
+  details.push(await fetchDiagnostic('https://install.speedtest.net/'));
+  details.push('If IPv6 is present but unreachable inside Docker, Ookla may choose an IPv6 path that the container cannot route.');
+  return details.join('\n');
+}
+
 async function getCloudflareTrace(): Promise<{ client_ip: string; server_location: string; isp_name: string }> {
   try {
     const res = await fetch(`${CF_BASE}/cdn-cgi/trace`, { cache: 'no-store' });
@@ -215,6 +249,7 @@ async function runHttpSpeedTest(provider: Extract<SpeedTestProvider, 'cloudflare
       isp_name: trace.isp_name,
       client_ip: trace.client_ip,
       result_url: meta.resultUrl,
+      diagnostics: '',
     };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -231,6 +266,7 @@ async function runHttpSpeedTest(provider: Extract<SpeedTestProvider, 'cloudflare
       isp_name: '',
       client_ip: '',
       result_url: meta.resultUrl,
+      diagnostics: '',
       error: msg,
     };
   }
@@ -263,9 +299,11 @@ async function runOoklaSpeedTest(): Promise<SpeedResult> {
       isp_name: connection,
       client_ip: iface.externalIp ?? iface.internalIp ?? '',
       result_url: result.url ?? meta.resultUrl,
+      diagnostics: '',
     };
   } catch (err) {
     const msg = ooklaErrorMessage(err);
+    const diagnostics = await ooklaDiagnostics();
     return {
       download_mbps: null,
       upload_mbps: null,
@@ -279,6 +317,7 @@ async function runOoklaSpeedTest(): Promise<SpeedResult> {
       isp_name: '',
       client_ip: '',
       result_url: meta.resultUrl,
+      diagnostics,
       error: msg,
     };
   }

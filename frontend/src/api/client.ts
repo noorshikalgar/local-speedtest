@@ -13,6 +13,7 @@ export interface SpeedResult {
   isp_name: string;
   client_ip: string;
   result_url: string;
+  diagnostics: string;
   is_manual: number;
   error: string | null;
 }
