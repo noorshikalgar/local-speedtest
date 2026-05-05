@@ -1,10 +1,12 @@
 import cron from 'node-cron';
 import { normalizeSpeedTestProvider, runSpeedTest, type SpeedTestProvider } from './speedtest.js';
 import { checkLatency } from './latency.js';
-import { getSetting, setSetting, insertSpeedResult, insertLatencyCheck, pruneOldData } from './db.js';
+import { dueMySites, getSetting, insertSiteCheck, setSetting, insertSpeedResult, insertLatencyCheck, pruneOldData } from './db.js';
 
 let currentTask: cron.ScheduledTask | null = null;
+let siteMonitorTimer: NodeJS.Timeout | null = null;
 let isRunning = false;
+let isCheckingSites = false;
 let lastRun: string | null = null;
 let nextRunEstimate: string | null = null;
 
@@ -57,6 +59,22 @@ async function runAllTests() {
   }
 }
 
+async function runDueSiteChecks() {
+  if (isCheckingSites) return;
+  isCheckingSites = true;
+  try {
+    const sites = dueMySites();
+    for (const site of sites) {
+      const result = await checkLatency(site.url);
+      insertSiteCheck(site, result);
+    }
+  } catch (err) {
+    console.error('[sites] Error during site checks:', err);
+  } finally {
+    isCheckingSites = false;
+  }
+}
+
 export function startScheduler() {
   stopScheduler();
   const intervalMin = parseInt(getSetting('test_interval_minutes') ?? '120', 10);
@@ -68,12 +86,19 @@ export function startScheduler() {
   const now = new Date();
   const next = new Date(now.getTime() + intervalMin * 60_000);
   nextRunEstimate = next.toISOString();
+
+  siteMonitorTimer = setInterval(runDueSiteChecks, 60_000);
+  void runDueSiteChecks();
 }
 
 export function stopScheduler() {
   if (currentTask) {
     currentTask.stop();
     currentTask = null;
+  }
+  if (siteMonitorTimer) {
+    clearInterval(siteMonitorTimer);
+    siteMonitorTimer = null;
   }
 }
 

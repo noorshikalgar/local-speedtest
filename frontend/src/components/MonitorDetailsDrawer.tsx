@@ -1,6 +1,6 @@
 import { ExternalLink, X } from 'lucide-react';
 import type React from 'react';
-import type { LatencyCheck, SpeedResult } from '@/api/client';
+import type { LatencyCheck, SiteCheck, SpeedResult } from '@/api/client';
 import { Button } from '@/components/ui/button';
 import { fmtMs, fmtSpeed, speedProviderLabel, type SpeedUnit, unitLabel } from '@/lib/utils';
 import { formatActivityTime } from '@/lib/datetime';
@@ -181,6 +181,62 @@ export function LatencyDetailsDrawer({
               { label: 'Latency', value: row.latency_ms != null ? `${row.latency_ms.toFixed(1)} ms` : null },
               { label: 'Status', value: row.status },
               { label: 'HTTP Status', value: row.http_status },
+              { label: 'HTTP Text', value: row.status_text },
+              { label: 'Response Server', value: row.response_server },
+              { label: 'Content Type', value: row.content_type },
+            ]} />
+          </DetailSection>
+          <DetailSection title="Endpoint">
+            <DetailGrid items={[
+              { label: 'Configured URL', value: row.url, href: row.url },
+              { label: 'Final URL', value: row.final_url || row.url, href: row.final_url || row.url },
+              { label: 'Configured Host', value: original.host },
+              { label: 'Final Host', value: final.host },
+              { label: 'Protocol', value: final.protocol },
+              { label: 'Port', value: final.port || (final.protocol === 'https' ? '443' : final.protocol === 'http' ? '80' : '') },
+              { label: 'Path', value: final.path },
+            ]} />
+          </DetailSection>
+          {row.error_message && (
+            <DetailSection title="Error">
+              <p className="break-words text-xs text-red-300">{row.error_message}</p>
+            </DetailSection>
+          )}
+        </>
+      )}
+    </Drawer>
+  );
+}
+
+export function SiteCheckDetailsDrawer({
+  row,
+  timezone,
+  onClose,
+}: {
+  row: SiteCheck | null;
+  timezone?: string | null;
+  onClose: () => void;
+}) {
+  const original = row ? parseUrl(row.url) : null;
+  const final = row ? parseUrl(row.final_url || row.url) : null;
+
+  return (
+    <Drawer
+      open={!!row}
+      title="Site Check Details"
+      subtitle={row ? row.site_name : undefined}
+      onClose={onClose}
+    >
+      {row && original && final && (
+        <>
+          <DetailSection title="Result">
+            <DetailGrid items={[
+              { label: 'Time', value: formatActivityTime(row.timestamp, timezone, true) },
+              { label: 'Latency', value: row.latency_ms != null ? `${row.latency_ms.toFixed(1)} ms` : null },
+              { label: 'Status', value: row.status },
+              { label: 'HTTP Status', value: row.http_status },
+              { label: 'Expected Status', value: row.expected_status },
+              { label: 'Latency Threshold', value: `${row.latency_threshold_ms} ms` },
               { label: 'HTTP Text', value: row.status_text },
               { label: 'Response Server', value: row.response_server },
               { label: 'Content Type', value: row.content_type },

@@ -45,6 +45,35 @@ db.exec(`
     error_message TEXT DEFAULT ''
   );
 
+  CREATE TABLE IF NOT EXISTS my_sites (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    url TEXT NOT NULL,
+    expected_status INTEGER DEFAULT 200,
+    latency_threshold_ms INTEGER DEFAULT 500,
+    interval_minutes INTEGER DEFAULT 15,
+    enabled INTEGER DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS site_checks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    site_id INTEGER NOT NULL,
+    timestamp TEXT NOT NULL,
+    url TEXT NOT NULL,
+    final_url TEXT DEFAULT '',
+    latency_ms REAL,
+    http_status INTEGER,
+    expected_status INTEGER DEFAULT 200,
+    latency_threshold_ms INTEGER DEFAULT 500,
+    status_text TEXT DEFAULT '',
+    response_server TEXT DEFAULT '',
+    content_type TEXT DEFAULT '',
+    status TEXT NOT NULL,
+    error_message TEXT DEFAULT '',
+    FOREIGN KEY(site_id) REFERENCES my_sites(id) ON DELETE CASCADE
+  );
+
   CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
@@ -52,6 +81,8 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_speed_ts ON speed_results(timestamp);
   CREATE INDEX IF NOT EXISTS idx_latency_ts ON latency_checks(timestamp);
+  CREATE INDEX IF NOT EXISTS idx_site_checks_ts ON site_checks(timestamp);
+  CREATE INDEX IF NOT EXISTS idx_site_checks_site_ts ON site_checks(site_id, timestamp);
 `);
 
 const speedColumns = db.prepare(`PRAGMA table_info(speed_results)`).all() as { name: string }[];
@@ -81,6 +112,15 @@ const missingLatencyColumns: [string, string][] = [
 for (const [column, sql] of missingLatencyColumns) {
   if (!latencyColumnNames.has(column)) db.exec(sql);
 }
+
+export type MySiteInput = {
+  name: string;
+  url: string;
+  expected_status: number;
+  latency_threshold_ms: number;
+  interval_minutes: number;
+  enabled: boolean;
+};
 
 const DEFAULTS: Record<string, string> = {
   plan_download_mbps: '100',
@@ -176,6 +216,126 @@ export function insertLatencyCheck(url: string, result: {
   );
 }
 
+function normalizeSiteInput(input: Partial<MySiteInput>): MySiteInput {
+  const url = String(input.url ?? '').trim();
+  let parsedName = '';
+  try { parsedName = new URL(url).hostname; } catch {}
+  return {
+    name: String(input.name ?? parsedName ?? url).trim() || url,
+    url,
+    expected_status: Math.min(599, Math.max(100, Number(input.expected_status ?? 200))),
+    latency_threshold_ms: Math.max(1, Number(input.latency_threshold_ms ?? 500)),
+    interval_minutes: Math.max(15, Number(input.interval_minutes ?? 15)),
+    enabled: input.enabled ?? true,
+  };
+}
+
+export function listMySites() {
+  return db.prepare(`
+    SELECT s.*,
+      c.timestamp AS last_checked_at,
+      c.latency_ms AS last_latency_ms,
+      c.http_status AS last_http_status,
+      c.status AS last_status
+    FROM my_sites s
+    LEFT JOIN site_checks c ON c.id = (
+      SELECT id FROM site_checks WHERE site_id = s.id ORDER BY timestamp DESC LIMIT 1
+    )
+    ORDER BY s.created_at DESC
+  `).all();
+}
+
+export function createMySite(input: Partial<MySiteInput>) {
+  const site = normalizeSiteInput(input);
+  return db.prepare(`
+    INSERT INTO my_sites (name, url, expected_status, latency_threshold_ms, interval_minutes, enabled)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(site.name, site.url, site.expected_status, site.latency_threshold_ms, site.interval_minutes, site.enabled ? 1 : 0);
+}
+
+export function updateMySite(id: number, input: Partial<MySiteInput>) {
+  const current = db.prepare('SELECT * FROM my_sites WHERE id = ?').get(id) as MySiteInput | undefined;
+  if (!current) return { changes: 0 };
+  const site = normalizeSiteInput({ ...current, ...input });
+  return db.prepare(`
+    UPDATE my_sites
+    SET name = ?, url = ?, expected_status = ?, latency_threshold_ms = ?, interval_minutes = ?, enabled = ?
+    WHERE id = ?
+  `).run(site.name, site.url, site.expected_status, site.latency_threshold_ms, site.interval_minutes, site.enabled ? 1 : 0, id);
+}
+
+export function deleteMySite(id: number) {
+  return db.prepare('DELETE FROM my_sites WHERE id = ?').run(id);
+}
+
+export function getMySite(id: number) {
+  return db.prepare('SELECT * FROM my_sites WHERE id = ?').get(id) as any;
+}
+
+export function dueMySites(now = new Date()) {
+  const rows = db.prepare(`
+    SELECT s.*,
+      (SELECT timestamp FROM site_checks WHERE site_id = s.id ORDER BY timestamp DESC LIMIT 1) AS last_checked_at
+    FROM my_sites s
+    WHERE s.enabled = 1
+  `).all() as any[];
+  return rows.filter(site => {
+    if (!site.last_checked_at) return true;
+    const last = new Date(String(site.last_checked_at).replace(' ', 'T') + 'Z').getTime();
+    return now.getTime() - last >= Number(site.interval_minutes) * 60_000;
+  });
+}
+
+export function insertSiteCheck(site: any, result: {
+  latency_ms: number | null;
+  status: string;
+  final_url: string;
+  http_status: number | null;
+  status_text: string;
+  response_server: string;
+  content_type: string;
+  error_message: string;
+}) {
+  const expectedStatus = Number(site.expected_status ?? 200);
+  const threshold = Number(site.latency_threshold_ms ?? 500);
+  const status = result.error_message
+    ? result.status
+    : result.http_status !== expectedStatus
+      ? 'bad_status'
+      : result.latency_ms != null && result.latency_ms > threshold
+        ? 'slow'
+        : 'ok';
+
+  return db.prepare(`
+    INSERT INTO site_checks (site_id, timestamp, url, final_url, latency_ms, http_status, expected_status, latency_threshold_ms, status_text, response_server, content_type, status, error_message)
+    VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    site.id,
+    site.url,
+    result.final_url,
+    result.latency_ms,
+    result.http_status,
+    expectedStatus,
+    threshold,
+    result.status_text,
+    result.response_server,
+    result.content_type,
+    status,
+    result.error_message,
+  );
+}
+
+export function getSiteChecks(sinceIso: string, limit = 1000) {
+  return db.prepare(`
+    SELECT c.*, s.name AS site_name
+    FROM site_checks c
+    JOIN my_sites s ON s.id = c.site_id
+    WHERE c.timestamp >= ?
+    ORDER BY c.timestamp ASC
+    LIMIT ?
+  `).all(sinceIso, limit);
+}
+
 export function getSpeedResults(sinceIso: string, limit = 500) {
   return db.prepare(`
     SELECT * FROM speed_results WHERE timestamp >= ? ORDER BY timestamp ASC LIMIT ?
@@ -195,6 +355,7 @@ export function getLatencyResults(sinceIso: string, limit = 500) {
 export function pruneOldData(retentionDays: number) {
   db.prepare(`DELETE FROM speed_results WHERE timestamp < datetime('now', '-' || ? || ' days')`).run(retentionDays);
   db.prepare(`DELETE FROM latency_checks WHERE timestamp < datetime('now', '-' || ? || ' days')`).run(retentionDays);
+  db.prepare(`DELETE FROM site_checks WHERE timestamp < datetime('now', '-' || ? || ' days')`).run(retentionDays);
 }
 
 export function getSpeedPage(offset: number, pageSize: number) {

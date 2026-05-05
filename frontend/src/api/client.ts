@@ -47,6 +47,48 @@ export interface Settings {
 export type TimeRange = '24h' | '7d' | '30d' | '90d';
 export type SpeedTestProvider = 'cloudflare' | 'google' | 'ookla';
 
+export interface MySite {
+  id: number;
+  name: string;
+  url: string;
+  expected_status: number;
+  latency_threshold_ms: number;
+  interval_minutes: number;
+  enabled: number;
+  created_at: string;
+  last_checked_at: string | null;
+  last_latency_ms: number | null;
+  last_http_status: number | null;
+  last_status: string | null;
+}
+
+export interface SiteCheck {
+  id: number;
+  site_id: number;
+  site_name: string;
+  timestamp: string;
+  url: string;
+  final_url: string;
+  latency_ms: number | null;
+  http_status: number | null;
+  expected_status: number;
+  latency_threshold_ms: number;
+  status_text: string;
+  response_server: string;
+  content_type: string;
+  status: string;
+  error_message: string;
+}
+
+export type MySitePayload = {
+  name: string;
+  url: string;
+  expected_status: number;
+  latency_threshold_ms: number;
+  interval_minutes: number;
+  enabled: boolean;
+};
+
 const API = '/api';
 
 async function api<T>(path: string, opts?: RequestInit): Promise<T> {
@@ -76,4 +118,23 @@ export const settingsApi = {
 
 export const latencyApi = {
   list: (range: '24h' | '7d' | '30d') => api<LatencyCheck[]>(`/latency?range=${range}`),
+};
+
+export const sitesApi = {
+  list: () => api<MySite[]>('/sites'),
+  create: (data: Partial<MySitePayload>) =>
+    api<{ success: boolean; id: number }>('/sites', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+  update: (id: number, data: Partial<MySitePayload>) =>
+    api<{ success: boolean }>(`/sites/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }),
+  remove: (id: number) => api<{ success: boolean }>(`/sites/${id}`, { method: 'DELETE' }),
+  run: (id: number) => api<{ success: boolean; id: number }>(`/sites/${id}/check`, { method: 'POST' }),
+  checks: (range: '24h' | '7d' | '30d') => api<SiteCheck[]>(`/sites/checks?range=${range}`),
 };

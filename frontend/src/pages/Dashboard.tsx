@@ -13,6 +13,7 @@ import { SpeedTable } from '@/components/SpeedTable';
 import { CombinedChart } from '@/components/CombinedChart';
 import { LatencyChart } from '@/components/LatencyChart';
 import { LatencyTable } from '@/components/LatencyTable';
+import { MySitesPanel } from '@/components/MySitesPanel';
 import { LatencyDetailsDrawer, SpeedDetailsDrawer } from '@/components/MonitorDetailsDrawer';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -23,7 +24,7 @@ import { cn } from '@/lib/utils';
 import { formatActivityTime } from '@/lib/datetime';
 
 type LatencyRange = '24h' | '7d' | '30d';
-type ViewTab = 'combined' | 'speed' | 'latency';
+type ViewTab = 'combined' | 'speed' | 'latency' | 'sites';
 
 function host(url: string) {
   try { return new URL(url).hostname; } catch { return url; }
@@ -276,6 +277,7 @@ export function Dashboard() {
             <TabsTrigger value="combined">Combined</TabsTrigger>
             <TabsTrigger value="speed">Speed Test</TabsTrigger>
             <TabsTrigger value="latency">Latency</TabsTrigger>
+            <TabsTrigger value="sites">My Sites</TabsTrigger>
           </TabsList>
 
           {/* ── Combined ── */}
@@ -300,6 +302,11 @@ export function Dashboard() {
           <TabsContent value="latency" className="space-y-4 mt-4">
             <LatencyChart data={latencyData} range={latencyRange} onRangeChange={setLatencyRange} timezone={settings?.display_timezone} />
             <LatencyTable data={latencyData} isLoading={latencyLoading} timezone={settings?.display_timezone} />
+          </TabsContent>
+
+          {/* ── My Sites ── */}
+          <TabsContent value="sites" className="space-y-4 mt-4">
+            <MySitesPanel timezone={settings?.display_timezone} />
           </TabsContent>
         </Tabs>
       </main>

@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 import speedsRouter from './routes/speeds.js';
 import settingsRouter from './routes/settings.js';
 import latencyRouter from './routes/latency.js';
+import sitesRouter from './routes/sites.js';
 import { startScheduler } from './scheduler.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -18,6 +19,7 @@ app.use(express.json());
 app.use('/api/speeds', speedsRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/latency', latencyRouter);
+app.use('/api/sites', sitesRouter);
 
 // Serve built frontend in production
 const frontendDist = path.join(__dirname, '..', '..', 'frontend', 'dist');
